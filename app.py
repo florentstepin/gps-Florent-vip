@@ -1,27 +1,26 @@
 import streamlit as st
 import google.generativeai as genai
-import urllib.parse # Nécessaire pour créer le lien email magique
+import urllib.parse 
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="L'Architecte (Pro)", page_icon="🏗️", layout="centered")
 
-# --- 🔴 VOTRE EMAIL DE CONTACT ICI 🔴 ---
+# --- 🔴 VOTRE EMAIL ICI 🔴 ---
 EMAIL_CONTACT = "votre-email@gmail.com" 
-# ----------------------------------------
+# -----------------------------
 
-# --- 2. BOUTON D'URGENCE ---
 if st.sidebar.button("♻️ RESET COMPLET"):
     st.session_state.clear()
     st.rerun()
 
-# --- 3. INITIALISATION ---
-defaults = {'logged_in': False, 'step': 1, 'audit': "", 'model_used': "En attente", 
+# --- 2. INITIALISATION ---
+defaults = {'logged_in': False, 'step': 1, 'audit': "", 'summary': "", 'model_used': "En attente", 
             'idea': "", 'pivot': "", 'plan': "", 'choix': ""}
 for key, value in defaults.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
-# --- 4. CONNEXION ---
+# --- 3. CONNEXION ---
 try:
     if "GOOGLE_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -32,56 +31,80 @@ except Exception as e:
     st.error(f"Erreur config : {e}")
     st.stop()
 
-# --- 5. CERVEAU HYBRIDE ---
+# --- 4. FONCTIONS IA (CERVEAU + RÉSUMEUR) ---
+
 def get_strategic_response(prompt_text):
+    """Le Cerveau Principal (Audit Détaillé)"""
     try:
         model = genai.GenerativeModel('gemini-2.5-pro')
         response = model.generate_content(prompt_text)
-        return response.text, "gemini-2.5-pro (Max)"
+        return response.text, "gemini-2.5-pro"
     except:
         try:
             model = genai.GenerativeModel('gemini-2.5-flash')
             response = model.generate_content(prompt_text)
-            return response.text, "gemini-2.5-flash (Fast)"
+            return response.text, "gemini-2.5-flash"
         except Exception as e:
-            return f"❌ Erreur critique : {e}", "Aucun"
+            return f"❌ Erreur : {e}", "Aucun"
 
-# --- 6. FONCTION EMAIL MAGIQUE ---
-def create_mailto_link(idea, audit):
+def get_email_summary(full_audit_text):
     """
-    Génère un lien qui ouvre l'email du client avec tout le texte déjà rempli.
+    L'Agent Résumeur : Transforme l'audit long en un email court et percutant.
+    Utilise le modèle Flash pour aller très vite.
     """
-    subject = "Demande d'aide - Analyse Architecte"
+    try:
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        prompt_summary = f"""
+        Tâche : Résume cet audit stratégique en un email court pour un consultant.
+        Contraintes :
+        - Maximum 10-12 lignes.
+        - Pas de markdown (gras/italique) car c'est pour un lien mailto.
+        - Reste factuel et direct.
+        - Structure : 1. Le Verdict, 2. Les 3 risques majeurs identifiés.
+        
+        TEXTE SOURCE :
+        {full_audit_text}
+        """
+        
+        response = model.generate_content(prompt_summary)
+        return response.text
+    except:
+        return "Résumé indisponible. Voir l'audit complet."
+
+# --- 5. FONCTION LINK (PROPRE) ---
+def create_mailto_link(idea, summary):
+    subject = "SOS Architecte - Demande d'avis"
     
-    # On prépare le corps du mail
+    # On nettoie l'idée pour qu'elle soit courte dans le mail
+    safe_idea = idea[:200] + "..." if len(idea) > 200 else idea
+
     body = f"""Bonjour,
 
-J'ai utilisé l'Architecte IA et voici le résultat obtenu.
-J'aimerais votre avis d'expert humain dessus.
+J'ai besoin d'un regard humain sur mon projet.
 
 --- MON IDÉE ---
-{idea}
+{safe_idea}
 
---- L'AUDIT DE L'IA ---
-{audit}
+--- RÉSUMÉ DE L'AUDIT IA ---
+{summary}
 
 ----------------
-(Le client peut ajouter son message ici)
+(J'aimerais savoir si je dois pivoter ou persévérer...)
 """
-    # On encode le texte pour qu'il passe dans une URL (les espaces deviennent %20, etc.)
     safe_subject = urllib.parse.quote(subject)
     safe_body = urllib.parse.quote(body)
     
     return f"mailto:{EMAIL_CONTACT}?subject={safe_subject}&body={safe_body}"
 
-# --- 7. PROMPTS ---
+# --- 6. PROMPTS ---
 PROMPT_AUDIT = """
 RÔLE : Avocat du Diable & Stratège.
 MISSION : Analyse sans pitié.
 LIVRABLE :
-1. 🛡️ **PRE-MORTEM** : 3 raisons fatales.
-2. 📊 **MATRICE D.U.R.** (/10) : Douleur / Urgence / Reconnu.
-3. 🏁 **VERDICT** : GO / NO-GO / PIVOT (En majuscules).
+1. 🏁 **VERDICT** : GO / NO-GO / PIVOT (Majuscules).
+2. 🛡️ **PRE-MORTEM** : 3 raisons fatales.
+3. 📊 **MATRICE D.U.R.** (/10).
 PROJET : {user_idea}
 """
 
@@ -98,10 +121,10 @@ LIVRABLE : Plan d'action.
 STRATÉGIE : {selected_angle}
 """
 
-# --- 8. INTERFACE ---
+# --- 7. INTERFACE ---
 def main():
     st.title("🏗️ L'Architecte")
-    st.caption("v5.0 - Email Contextuel")
+    st.caption("v7.0 - Email Summary Agent")
 
     # LOGIN
     if not st.session_state.logged_in:
@@ -129,37 +152,42 @@ def main():
         
         if st.button("Lancer l'Audit 💥"):
             if user_idea:
-                with st.spinner("Analyse des risques..."):
-                    res, model_name = get_strategic_response(PROMPT_AUDIT.format(user_idea=user_idea))
-                    st.session_state.audit = res
+                # 1. On lance l'Audit complet (Lourd)
+                with st.spinner("1/2 Analyse des risques..."):
+                    audit_res, model_name = get_strategic_response(PROMPT_AUDIT.format(user_idea=user_idea))
+                    st.session_state.audit = audit_res
                     st.session_state.model_used = model_name
                     st.session_state.idea = user_idea
+                
+                # 2. On lance le Résumé Email (Léger)
+                with st.spinner("2/2 Préparation du rapport email..."):
+                    summary_res = get_email_summary(audit_res)
+                    st.session_state.summary = summary_res
+                    
                     st.session_state.step = 2
                     st.rerun()
 
-    # ETAPE 2 : RÉSULTAT + EMAIL CONTEXTUEL
+    # ETAPE 2 : RÉSULTAT
     elif st.session_state.step == 2:
         st.caption(f"Cerveau : {st.session_state.model_used}")
         st.markdown(st.session_state.audit)
         
         # --- LOGIQUE INTELLIGENTE ---
-        verdict_negatif = "NO-GO" in st.session_state.audit or "PIVOT" in st.session_state.audit
+        # On utilise le RÉSUMÉ pour le lien mail, pas le texte entier
+        link = create_mailto_link(st.session_state.idea, st.session_state.summary)
         
-        # Création du lien email personnalisé
-        link = create_mailto_link(st.session_state.idea, st.session_state.audit)
+        verdict_negatif = "NO-GO" in st.session_state.audit or "PIVOT" in st.session_state.audit
         
         st.markdown("---")
         
         if verdict_negatif:
-            st.error("🚨 **ALERTE : PROJET À RISQUE**")
-            st.write("L'IA a détecté des failles critiques. Ne restez pas seul avec ce diagnostic.")
-            # Bouton Email Rouge
-            st.link_button("📧 Envoyer ce rapport à l'Architecte (Humain)", link)
+            st.error("🚨 **ALERTE PROJET**")
+            st.write("Le diagnostic est sévère.")
+            st.link_button("📧 Envoyer le rapport (Résumé) à l'Architecte", link)
         else:
-            st.success("✅ **SIGNAL VERT**")
-            st.write("Le potentiel est là. Vous voulez accélérer la mise en œuvre ?")
-            # Bouton Email Vert
-            st.link_button("🚀 Envoyer mon dossier pour validation", link)
+            st.success("✅ **POTENTIEL DÉTECTÉ**")
+            st.write("Le projet est solide.")
+            st.link_button("🚀 Envoyer pour validation (Résumé)", link)
             
         st.markdown("---")
 
@@ -197,14 +225,15 @@ def main():
             with st.spinner("Rédaction..."):
                 res, _ = get_strategic_response(PROMPT_PLAN.format(selected_angle=st.session_state.choix))
                 st.session_state.plan = res
+                
+                # On génère aussi un petit résumé du plan pour le mail final
+                st.session_state.summary = get_email_summary(res)
         
         st.markdown(st.session_state.plan)
         st.download_button("Télécharger", st.session_state.plan, "Plan.md")
         
-        # Rappel Email à la fin
-        st.info("Besoin d'aide pour exécuter ?")
-        # On régénère le lien avec le plan cette fois
-        final_link = create_mailto_link(st.session_state.choix, st.session_state.plan)
+        final_link = create_mailto_link(st.session_state.choix, st.session_state.summary)
+        st.info("Besoin d'aide ?")
         st.link_button("📧 Envoyer le plan à l'équipe", final_link)
         
         if st.button("Recommencer"):
