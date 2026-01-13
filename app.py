@@ -31,7 +31,7 @@ except Exception as e:
     st.error(f"Erreur config : {e}")
     st.stop()
 
-# --- 4. FONCTIONS IA ---
+# --- 4. IA ---
 def get_strategic_response(prompt_text):
     try:
         model = genai.GenerativeModel('gemini-2.5-pro')
@@ -48,60 +48,59 @@ def get_strategic_response(prompt_text):
 def get_email_summary(full_audit_text):
     try:
         model = genai.GenerativeModel('gemini-2.5-flash')
-        prompt_summary = f"""
-        Tâche : Résume cet audit en un email ultra-court pour un humain.
-        Contraintes : 10 lignes MAX. Pas de gras/italique. Style direct.
-        TEXTE : {full_audit_text}
-        """
-        response = model.generate_content(prompt_summary)
+        prompt = f"Résume ceci en 8 lignes MAX pour un email pro. Pas de gras/markdown. Style direct.\nTEXTE: {full_audit_text}"
+        response = model.generate_content(prompt)
         return response.text
     except:
-        return "Voir l'audit complet ci-joint."
+        return "Voir rapport complet."
 
-# --- 5. NOYAU TECHNIQUE (LIENS & BOUTONS HTML) ---
+# --- 5. FONCTIONS EMAIL ROBUSTES ---
 
-def create_mailto_link(idea, summary):
+def create_email_content(idea, summary):
+    """Prépare le sujet et le corps du texte brute pour le mailto et le copier-coller"""
     subject = "SOS Architecte - Demande d'avis"
-    safe_idea = idea[:200] + "..." if len(idea) > 200 else idea
+    safe_idea = idea[:300] + "..." if len(idea) > 300 else idea
     
     body = f"""Bonjour,
-J'ai besoin d'un regard humain sur mon projet.
+J'aimerais votre avis d'expert sur ce projet.
 
 --- MON IDÉE ---
 {safe_idea}
 
---- RÉSUMÉ IA ---
+--- DIAGNOSTIC IA ---
 {summary}
 
 ----------------
-(Votre message...)
-"""
-    return f"mailto:{EMAIL_CONTACT}?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
+(Message du client...)"""
+    return subject, body
 
-def afficher_bouton_email(texte, lien, couleur="#FF4B4B"):
+def afficher_bloc_action(verdict_negatif, subject, body):
     """
-    Crée un bouton HTML qui force l'ouverture dans la même fenêtre (target='_self')
-    pour éviter le bug 'about:blank'.
+    Affiche le bouton ET la solution de secours (Copier-Coller)
     """
-    html_code = f"""
-    <a href="{lien}" target="_self" style="text-decoration: none;">
-        <div style="
-            background-color: {couleur};
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            text-align: center;
-            font-weight: bold;
-            font-family: sans-serif;
-            margin-bottom: 10px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            transition: 0.3s;
-        ">
-            {texte}
+    # Encodage pour le lien (Bouton)
+    safe_subject = urllib.parse.quote(subject)
+    safe_body = urllib.parse.quote(body)
+    mailto_link = f"mailto:{EMAIL_CONTACT}?subject={safe_subject}&body={safe_body}"
+    
+    # Couleur selon verdict
+    color = "#FF4B4B" if verdict_negatif else "#00C853"
+    msg = "🚨 ALERTE : Contacter l'Architecte" if verdict_negatif else "🚀 Valider avec l'Architecte"
+    
+    # 1. Le Bouton HTML (Tentative directe)
+    html_btn = f"""
+    <a href="{mailto_link}" target="_top" style="text-decoration: none;">
+        <div style="background-color: {color}; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 10px; cursor: pointer;">
+            ✉️ {msg} (Cliquer ici)
         </div>
     </a>
     """
-    st.markdown(html_code, unsafe_allow_html=True)
+    st.markdown(html_btn, unsafe_allow_html=True)
+    
+    # 2. La Roue de Secours (Si le clic échoue)
+    with st.expander("Si le bouton ne marche pas (Copier-Coller) 👇"):
+        st.caption(f"Envoyez ce texte à : **{EMAIL_CONTACT}**")
+        st.code(body, language=None) # Affiche une zone de texte facile à copier
 
 # --- 6. PROMPTS ---
 PROMPT_AUDIT = """
@@ -112,14 +111,13 @@ LIVRABLE :
 3. 📊 **MATRICE D.U.R.** (/10).
 PROJET : {user_idea}
 """
-
 PROMPT_PIVOT = "RÔLE : Innovation. MISSION : 5 Pivots radicaux. PROJET : {user_idea}"
 PROMPT_PLAN = "RÔLE : Chef de projet. OBJECTIF : Vente J+7. LIVRABLE : Plan d'action. STRATÉGIE : {selected_angle}"
 
 # --- 7. INTERFACE ---
 def main():
     st.title("🏗️ L'Architecte")
-    st.caption("v8.0 - Boutons HTML Natifs")
+    st.caption("v9.0 - Fail-Safe Email")
 
     # LOGIN
     if not st.session_state.logged_in:
@@ -148,15 +146,11 @@ def main():
         if st.button("Lancer l'Audit 💥"):
             if user_idea:
                 with st.spinner("Analyse + Résumé..."):
-                    # IA 1 : Audit
                     audit, model = get_strategic_response(PROMPT_AUDIT.format(user_idea=user_idea))
                     st.session_state.audit = audit
                     st.session_state.model_used = model
                     st.session_state.idea = user_idea
-                    
-                    # IA 2 : Résumé Email
                     st.session_state.summary = get_email_summary(audit)
-                    
                     st.session_state.step = 2
                     st.rerun()
 
@@ -165,21 +159,14 @@ def main():
         st.caption(f"Cerveau : {st.session_state.model_used}")
         st.markdown(st.session_state.audit)
         
-        # --- BOUTONS HTML ---
-        link = create_mailto_link(st.session_state.idea, st.session_state.summary)
-        verdict_negatif = "NO-GO" in st.session_state.audit or "PIVOT" in st.session_state.audit
-        
         st.markdown("---")
-        if verdict_negatif:
-            st.error("🚨 **ALERTE PROJET**")
-            st.write("Le diagnostic est sévère.")
-            # Bouton Rouge (#FF4B4B)
-            afficher_bouton_email("📧 Envoyer le rapport (Résumé) à l'Architecte", link, "#FF4B4B")
-        else:
-            st.success("✅ **POTENTIEL DÉTECTÉ**")
-            st.write("Le projet est solide.")
-            # Bouton Vert (#00C853)
-            afficher_bouton_email("🚀 Envoyer pour validation (Résumé)", link, "#00C853")
+        
+        # --- BLOC ACTION ROBUSTE ---
+        verdict_negatif = "NO-GO" in st.session_state.audit or "PIVOT" in st.session_state.audit
+        subject, body = create_email_content(st.session_state.idea, st.session_state.summary)
+        
+        afficher_bloc_action(verdict_negatif, subject, body)
+            
         st.markdown("---")
 
         col1, col2 = st.columns(2)
@@ -221,10 +208,10 @@ def main():
         st.markdown(st.session_state.plan)
         st.download_button("Télécharger", st.session_state.plan, "Plan.md")
         
-        final_link = create_mailto_link(st.session_state.choix, st.session_state.summary)
         st.info("Besoin d'aide ?")
-        # Bouton Bleu (#2962FF)
-        afficher_bouton_email("📧 Envoyer le plan à l'équipe", final_link, "#2962FF")
+        # Affichage du bloc email pour le plan aussi
+        subj_plan, body_plan = create_email_content(st.session_state.choix, st.session_state.summary)
+        afficher_bloc_action(False, subj_plan, body_plan)
         
         if st.button("Recommencer"):
             st.session_state.clear()
