@@ -6,7 +6,7 @@ import urllib.parse
 st.set_page_config(page_title="L'Architecte (Pro)", page_icon="🏗️", layout="centered")
 
 # --- 🔴 VOTRE EMAIL ICI 🔴 ---
-EMAIL_CONTACT = "votre-email@gmail.com" 
+EMAIL_CONTACT = "photos.studio.ia@gmail.com" 
 # -----------------------------
 
 if st.sidebar.button("♻️ RESET COMPLET"):
