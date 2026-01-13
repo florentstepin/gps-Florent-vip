@@ -1,16 +1,15 @@
 import streamlit as st
 import google.generativeai as genai
 
-# --- 1. CONFIGURATION ET NETTOYAGE IMMÉDIAT ---
-st.set_page_config(page_title="Architecte (Rescue)", page_icon="🚑", layout="centered")
+# --- 1. CONFIGURATION ---
+st.set_page_config(page_title="Architecte (Gemini 2.5)", page_icon="🚀", layout="centered")
 
-# Bouton de secours pour nettoyer la mémoire si ça plante
-if st.sidebar.button("🔴 RESET TOTAL (Cliquer ici si bug)"):
+# Bouton de secours (en cas de bug de mémoire)
+if st.sidebar.button("🔴 RESET MÉMOIRE"):
     st.session_state.clear()
     st.rerun()
 
-# --- 2. INITIALISATION SÉCURISÉE (Anti-Crash) ---
-# On initialise TOUTES les variables possibles dès le début
+# --- 2. INITIALISATION VARIABLES (Anti-Crash) ---
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 if 'step' not in st.session_state:
@@ -21,12 +20,6 @@ if 'model_name' not in st.session_state:
     st.session_state.model_name = "En attente"
 if 'idea' not in st.session_state:
     st.session_state.idea = ""
-if 'pivot' not in st.session_state:
-    st.session_state.pivot = ""
-if 'plan' not in st.session_state:
-    st.session_state.plan = ""
-if 'choix' not in st.session_state:
-    st.session_state.choix = ""
 
 # --- 3. CONNEXION API ---
 try:
@@ -39,21 +32,22 @@ except Exception as e:
     st.error(f"Erreur config : {e}")
     st.stop()
 
-# --- 4. LE MOTEUR "INCASSABLE" ---
+# --- 4. LE MOTEUR COMPATIBLE (Votre Liste) ---
 def get_safe_response(prompt_text):
     """
-    On utilise UNIQUEMENT Gemini 1.5 Flash.
-    C'est le modèle le plus stable du monde. Pas d'expérimental, pas de crash.
+    On utilise gemini-2.5-flash car il est en haut de votre liste 'API Active'.
     """
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # C'est le modèle que VOUS avez (vu sur votre capture d'écran)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
         response = model.generate_content(prompt_text)
         return response.text
     except Exception as e:
         return f"❌ ERREUR API : {e}"
 
-# --- 5. INTERFACE LOGIN ---
-st.title("🚑 Mode Réparation")
+# --- 5. LOGIN ---
+st.title("🚀 Mode 2.5 Flash")
 
 if not st.session_state.logged_in:
     with st.form("login_form"):
@@ -65,31 +59,30 @@ if not st.session_state.logged_in:
                 st.rerun()
             else:
                 st.error("Code faux")
-    st.stop() # Arrête tout ici si pas connecté
+    st.stop()
 
-# --- 6. APPLICATION (Une fois connecté) ---
+# --- 6. APPLICATION ---
 
-st.success("✅ Connexion réussie. Système stable.")
+st.success("✅ Système connecté à Gemini 2.5")
 
-# ÉTAPE 1 : L'INPUT
+# ÉTAPE 1
 if st.session_state.step == 1:
     st.subheader("Test de génération")
-    user_idea = st.text_area("Votre idée :", "Vente de drones")
+    user_idea = st.text_area("Votre idée :", "Formation drone photogrammétrie")
     
     if st.button("Lancer le test"):
-        with st.spinner("Appel à Gemini 1.5 Flash..."):
-            res = get_safe_response(f"Analyse critique courte de : {user_idea}")
+        with st.spinner("Gemini 2.5 Flash travaille..."):
+            res = get_safe_response(f"Fais une critique très courte (3 points) de ce projet : {user_idea}")
             st.session_state.audit = res
-            st.session_state.model_name = "gemini-1.5-flash"
-            st.session_state.idea = user_idea
+            st.session_state.model_name = "gemini-2.5-flash"
             st.session_state.step = 2
             st.rerun()
 
-# ÉTAPE 2 : RÉSULTAT
+# ÉTAPE 2
 elif st.session_state.step == 2:
-    st.info(f"Modèle utilisé : {st.session_state.model_name}")
+    st.info(f"Réponse générée par : {st.session_state.model_name}")
     st.write(st.session_state.audit)
     
-    if st.button("Recommencer"):
+    if st.button("Nouvel Essai"):
         st.session_state.step = 1
         st.rerun()
