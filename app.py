@@ -2,25 +2,34 @@ import streamlit as st
 import google.generativeai as genai
 import urllib.parse 
 
-# --- 1. CONFIGURATION ---
-st.set_page_config(page_title="L'Architecte (Pro)", page_icon="🏗️", layout="centered")
+# --- 1. CONFIGURATION GOOGLE FORM (A REMPLIR PAR VOUS) ---
+# Copiez l'URL de base de votre formulaire (tout ce qui est avant le '?')
+FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScKU17kIr4t_Wiwi6uTMd0a2CCUMtqOU0w_yEHb8uAXVfgCZw/viewform"
 
-# --- 🔴 VOTRE EMAIL ICI 🔴 ---
-EMAIL_CONTACT = "photos.studio.ia@gmail.com" 
-# -----------------------------
+# Mettez ici les numéros "entry.XXXXX" que vous avez trouvés à l'étape 1
+# Attention : ne mettez QUE le numéro (ex: '12345678')
+ENTRY_ID_EMAIL = "121343077"  # ID du champ pour l'Email client (Optionnel ou mettre un champ vide)
+ENTRY_ID_IDEA =  "1974870243"  # ID du champ pour "L'Idée"
+ENTRY_ID_AUDIT = "1147735867"  # ID du champ pour "L'Audit"
+
+# Votre Email de contact (affiché en secours)
+EMAIL_CONTACT = "photos.studio.ia@gmail.com"
+# ---------------------------------------------------------
+
+st.set_page_config(page_title="L'Architecte (Pro)", page_icon="🏗️", layout="centered")
 
 if st.sidebar.button("♻️ RESET COMPLET"):
     st.session_state.clear()
     st.rerun()
 
-# --- 2. INITIALISATION ---
+# --- INITIALISATION ---
 defaults = {'logged_in': False, 'step': 1, 'audit': "", 'summary': "", 'model_used': "En attente", 
             'idea': "", 'pivot': "", 'plan': "", 'choix': ""}
 for key, value in defaults.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
-# --- 3. CONNEXION ---
+# --- CONNEXION ---
 try:
     if "GOOGLE_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -31,7 +40,7 @@ except Exception as e:
     st.error(f"Erreur config : {e}")
     st.stop()
 
-# --- 4. IA ---
+# --- IA ---
 def get_strategic_response(prompt_text):
     try:
         model = genai.GenerativeModel('gemini-2.5-pro')
@@ -46,63 +55,30 @@ def get_strategic_response(prompt_text):
             return f"❌ Erreur : {e}", "Aucun"
 
 def get_email_summary(full_audit_text):
+    """On fait un résumé pour être sûr que ça rentre dans l'URL du Form"""
     try:
         model = genai.GenerativeModel('gemini-2.5-flash')
-        prompt = f"Résume ceci en 8 lignes MAX pour un email pro. Pas de gras/markdown. Style direct.\nTEXTE: {full_audit_text}"
+        prompt = f"Résume ceci en 15 lignes claires pour un formulaire de contact. Pas de markdown.\nTEXTE: {full_audit_text}"
         response = model.generate_content(prompt)
         return response.text
     except:
         return "Voir rapport complet."
 
-# --- 5. FONCTIONS EMAIL ROBUSTES ---
-
-def create_email_content(idea, summary):
-    """Prépare le sujet et le corps du texte brute pour le mailto et le copier-coller"""
-    subject = "SOS Architecte - Demande d'avis"
-    safe_idea = idea[:300] + "..." if len(idea) > 300 else idea
+# --- FONCTION LIEN GOOGLE FORM ---
+def create_google_form_link(idea, audit_summary):
+    base = FORM_URL
     
-    body = f"""Bonjour,
-J'aimerais votre avis d'expert sur ce projet.
-
---- MON IDÉE ---
-{safe_idea}
-
---- DIAGNOSTIC IA ---
-{summary}
-
-----------------
-(Message du client...)"""
-    return subject, body
-
-def afficher_bloc_action(verdict_negatif, subject, body):
-    """
-    Affiche le bouton ET la solution de secours (Copier-Coller)
-    """
-    # Encodage pour le lien (Bouton)
-    safe_subject = urllib.parse.quote(subject)
-    safe_body = urllib.parse.quote(body)
-    mailto_link = f"mailto:{EMAIL_CONTACT}?subject={safe_subject}&body={safe_body}"
+    # On encode les textes pour l'URL
+    safe_idea = urllib.parse.quote(idea[:500]) # On garde les 500 premiers caractères
+    safe_audit = urllib.parse.quote(audit_summary)
     
-    # Couleur selon verdict
-    color = "#FF4B4B" if verdict_negatif else "#00C853"
-    msg = "🚨 ALERTE : Contacter l'Architecte" if verdict_negatif else "🚀 Valider avec l'Architecte"
+    # On construit l'URL finale avec vos IDs
+    # Structure : URL?entry.ID_IDEE=Texte&entry.ID_AUDIT=Texte
+    link = f"{base}?entry.{ENTRY_ID_IDEA}={safe_idea}&entry.{ENTRY_ID_AUDIT}={safe_audit}"
     
-    # 1. Le Bouton HTML (Tentative directe)
-    html_btn = f"""
-    <a href="{mailto_link}" target="_top" style="text-decoration: none;">
-        <div style="background-color: {color}; color: white; padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 10px; cursor: pointer;">
-            ✉️ {msg} (Cliquer ici)
-        </div>
-    </a>
-    """
-    st.markdown(html_btn, unsafe_allow_html=True)
-    
-    # 2. La Roue de Secours (Si le clic échoue)
-    with st.expander("Si le bouton ne marche pas (Copier-Coller) 👇"):
-        st.caption(f"Envoyez ce texte à : **{EMAIL_CONTACT}**")
-        st.code(body, language=None) # Affiche une zone de texte facile à copier
+    return link
 
-# --- 6. PROMPTS ---
+# --- PROMPTS ---
 PROMPT_AUDIT = """
 RÔLE : Avocat du Diable.
 LIVRABLE :
@@ -114,10 +90,10 @@ PROJET : {user_idea}
 PROMPT_PIVOT = "RÔLE : Innovation. MISSION : 5 Pivots radicaux. PROJET : {user_idea}"
 PROMPT_PLAN = "RÔLE : Chef de projet. OBJECTIF : Vente J+7. LIVRABLE : Plan d'action. STRATÉGIE : {selected_angle}"
 
-# --- 7. INTERFACE ---
+# --- INTERFACE ---
 def main():
     st.title("🏗️ L'Architecte")
-    st.caption("v9.0 - Fail-Safe Email")
+    st.caption("v11.0 - Google Form Connect")
 
     # LOGIN
     if not st.session_state.logged_in:
@@ -145,7 +121,7 @@ def main():
         
         if st.button("Lancer l'Audit 💥"):
             if user_idea:
-                with st.spinner("Analyse + Résumé..."):
+                with st.spinner("Analyse..."):
                     audit, model = get_strategic_response(PROMPT_AUDIT.format(user_idea=user_idea))
                     st.session_state.audit = audit
                     st.session_state.model_used = model
@@ -159,14 +135,22 @@ def main():
         st.caption(f"Cerveau : {st.session_state.model_used}")
         st.markdown(st.session_state.audit)
         
+        # --- BLOC GOOGLE FORM ---
+        verdict_negatif = "NO-GO" in st.session_state.audit or "PIVOT" in st.session_state.audit
+        form_link = create_google_form_link(st.session_state.idea, st.session_state.summary)
+        
         st.markdown("---")
         
-        # --- BLOC ACTION ROBUSTE ---
-        verdict_negatif = "NO-GO" in st.session_state.audit or "PIVOT" in st.session_state.audit
-        subject, body = create_email_content(st.session_state.idea, st.session_state.summary)
-        
-        afficher_bloc_action(verdict_negatif, subject, body)
-            
+        if verdict_negatif:
+            st.error("🚨 **PROJET À RISQUE**")
+            st.write("Ne restez pas seul. Soumettez ce dossier pour analyse humaine.")
+            st.link_button("📤 Envoyer le dossier à l'Architecte (Formulaire)", form_link)
+        else:
+            st.success("✅ **POTENTIEL CONFIRMÉ**")
+            st.write("Passez à la vitesse supérieure.")
+            st.link_button("🚀 Candidater pour l'accompagnement", form_link)
+    
+        st.caption("Cela ouvrira un formulaire Google pré-rempli avec votre idée et l'audit.")
         st.markdown("---")
 
         col1, col2 = st.columns(2)
@@ -209,9 +193,9 @@ def main():
         st.download_button("Télécharger", st.session_state.plan, "Plan.md")
         
         st.info("Besoin d'aide ?")
-        # Affichage du bloc email pour le plan aussi
-        subj_plan, body_plan = create_email_content(st.session_state.choix, st.session_state.summary)
-        afficher_bloc_action(False, subj_plan, body_plan)
+        # Lien form pour le plan aussi
+        plan_link = create_google_form_link(st.session_state.choix, st.session_state.summary)
+        st.link_button("📤 Envoyer ce plan à l'équipe", plan_link)
         
         if st.button("Recommencer"):
             st.session_state.clear()
