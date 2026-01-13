@@ -1,35 +1,63 @@
 import streamlit as st
 import google.generativeai as genai
-import urllib.parse 
+import urllib.parse
+import sqlite3
+import uuid
 
-# --- 1. CONFIGURATION GOOGLE FORM (A REMPLIR PAR VOUS) ---
-# Copiez l'URL de base de votre formulaire (tout ce qui est avant le '?')
-FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScKU17kIr4t_Wiwi6uTMd0a2CCUMtqOU0w_yEHb8uAXVfgCZw/viewform"
-
-# Mettez ici les numéros "entry.XXXXX" que vous avez trouvés à l'étape 1
-# Attention : ne mettez QUE le numéro (ex: '12345678')
-ENTRY_ID_EMAIL = "121343077"  # ID du champ pour l'Email client (Optionnel ou mettre un champ vide)
-ENTRY_ID_IDEA =  "1974870243"  # ID du champ pour "L'Idée"
-ENTRY_ID_AUDIT = "1147735867"  # ID du champ pour "L'Audit"
-
-# Votre Email de contact (affiché en secours)
+# --- 1. CONFIGURATION ---
+FORM_URL = "https://docs.google.com/forms/d/e/VOTRE_ID_DE_FORMULAIRE/viewform"
+ENTRY_ID_EMAIL = "121343077"
+ENTRY_ID_IDEA =  "1974870243"
+ENTRY_ID_AUDIT = "1147735867"
 EMAIL_CONTACT = "photos.studio.ia@gmail.com"
-# ---------------------------------------------------------
+MASTER_CODE = "BOSS-2026" 
+# ------------------------
 
-st.set_page_config(page_title="L'Architecte (Pro)", page_icon="🏗️", layout="centered")
+st.set_page_config(page_title="L'Architecte", page_icon="🏗️", layout="centered")
 
-if st.sidebar.button("♻️ RESET COMPLET"):
-    st.session_state.clear()
-    st.rerun()
+# --- 2. BASE DE DONNÉES ---
+def init_db():
+    conn = sqlite3.connect('clients.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+                 (access_code TEXT PRIMARY KEY, credits INT, total_runs INT)''')
+    conn.commit()
+    conn.close()
 
-# --- INITIALISATION ---
-defaults = {'logged_in': False, 'step': 1, 'audit': "", 'summary': "", 'model_used': "En attente", 
-            'idea': "", 'pivot': "", 'plan': "", 'choix': ""}
+def get_user_credits(code):
+    conn = sqlite3.connect('clients.db')
+    c = conn.cursor()
+    c.execute("SELECT credits, total_runs FROM users WHERE access_code=?", (code,))
+    result = c.fetchone()
+    conn.close()
+    return result
+
+def decrement_credits(code):
+    conn = sqlite3.connect('clients.db')
+    c = conn.cursor()
+    c.execute("UPDATE users SET credits = credits - 1, total_runs = total_runs + 1 WHERE access_code=?", (code,))
+    conn.commit()
+    conn.close()
+
+def create_new_user(credits=50):
+    conn = sqlite3.connect('clients.db')
+    c = conn.cursor()
+    new_code = "KEY-" + str(uuid.uuid4())[:8].upper()
+    c.execute("INSERT INTO users VALUES (?, ?, 0)", (new_code, credits))
+    conn.commit()
+    conn.close()
+    return new_code
+
+init_db()
+
+# --- 3. SESSION ---
+defaults = {'logged_in': False, 'is_admin': False, 'user_code': None, 'credits_left': 0, 'total_runs': 0,
+            'step': 1, 'audit': "", 'summary': "", 'idea': "", 'plan': "", 'pivot': ""}
 for key, value in defaults.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
-# --- CONNEXION ---
+# --- 4. IA ---
 try:
     if "GOOGLE_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
@@ -40,7 +68,6 @@ except Exception as e:
     st.error(f"Erreur config : {e}")
     st.stop()
 
-# --- IA ---
 def get_strategic_response(prompt_text):
     try:
         model = genai.GenerativeModel('gemini-2.5-pro')
@@ -55,72 +82,138 @@ def get_strategic_response(prompt_text):
             return f"❌ Erreur : {e}", "Aucun"
 
 def get_email_summary(full_audit_text):
-    """On fait un résumé pour être sûr que ça rentre dans l'URL du Form"""
     try:
         model = genai.GenerativeModel('gemini-2.5-flash')
-        prompt = f"Résume ceci en 15 lignes claires pour un formulaire de contact. Pas de markdown.\nTEXTE: {full_audit_text}"
+        prompt = f"Résume ceci en 15 lignes pour formulaire contact. Pas de markdown.\nTEXTE: {full_audit_text}"
         response = model.generate_content(prompt)
         return response.text
     except:
-        return "Voir rapport complet."
+        return "Voir rapport."
 
-# --- FONCTION LIEN GOOGLE FORM ---
 def create_google_form_link(idea, audit_summary):
-    base = FORM_URL
-    
-    # On encode les textes pour l'URL
-    safe_idea = urllib.parse.quote(idea[:500]) # On garde les 500 premiers caractères
+    safe_idea = urllib.parse.quote(idea[:500])
     safe_audit = urllib.parse.quote(audit_summary)
-    
-    # On construit l'URL finale avec vos IDs
-    # Structure : URL?entry.ID_IDEE=Texte&entry.ID_AUDIT=Texte
-    link = f"{base}?entry.{ENTRY_ID_IDEA}={safe_idea}&entry.{ENTRY_ID_AUDIT}={safe_audit}"
-    
-    return link
+    return f"{FORM_URL}?entry.{ENTRY_ID_IDEA}={safe_idea}&entry.{ENTRY_ID_AUDIT}={safe_audit}"
 
-# --- PROMPTS ---
-PROMPT_AUDIT = """
-RÔLE : Avocat du Diable.
-LIVRABLE :
-1. 🏁 **VERDICT** : GO / NO-GO / PIVOT (Majuscules).
-2. 🛡️ **PRE-MORTEM** : 3 raisons fatales.
-3. 📊 **MATRICE D.U.R.** (/10).
-PROJET : {user_idea}
-"""
+# PROMPTS
+PROMPT_AUDIT = "RÔLE : Avocat du Diable. LIVRABLE : 1. VERDICT, 2. Risques, 3. Matrice DUR. PROJET : {user_idea}"
 PROMPT_PIVOT = "RÔLE : Innovation. MISSION : 5 Pivots radicaux. PROJET : {user_idea}"
 PROMPT_PLAN = "RÔLE : Chef de projet. OBJECTIF : Vente J+7. LIVRABLE : Plan d'action. STRATÉGIE : {selected_angle}"
 
-# --- INTERFACE ---
-def main():
-    st.title("🏗️ L'Architecte")
-    st.caption("v11.0 - Google Form Connect")
+# --- 5. LOGIQUE DE CONNEXION ---
+def attempt_login(code_input):
+    clean_code = code_input.strip()
+    
+    # GOD MODE
+    if clean_code == MASTER_CODE:
+        st.session_state.logged_in = True
+        st.session_state.is_admin = True
+        st.session_state.user_code = "ADMIN"
+        st.session_state.credits_left = 999999
+        return True, "Admin connecté"
+    
+    # CLIENT MODE
+    user_data = get_user_credits(clean_code)
+    if user_data:
+        credits, runs = user_data
+        if credits > 0:
+            st.session_state.logged_in = True
+            st.session_state.is_admin = False
+            st.session_state.user_code = clean_code
+            st.session_state.credits_left = credits
+            st.session_state.total_runs = runs
+            return True, "Client connecté"
+        else:
+            return False, "🔒 Crédits épuisés."
+    else:
+        return False, "❌ Code invalide."
 
-    # LOGIN
+# --- 6. INTERFACE PRINCIPALE ---
+def main():
+    
+    # A. VÉRIFICATION URL (AUTO-LOGIN)
+    # On regarde si ?code=... est dans l'URL
+    query_params = st.query_params
+    url_code = query_params.get("code", None)
+
+    # Si on n'est pas connecté MAIS qu'il y a un code dans l'URL -> On tente le login auto
+    if not st.session_state.logged_in and url_code:
+        success, msg = attempt_login(url_code)
+        if success:
+            st.toast(f"Connexion automatique : {msg}")
+            st.rerun() # On recharge pour afficher l'interface
+        else:
+            st.error(msg)
+
+    st.title("🏗️ L'Architecte")
+
+    # B. ÉCRAN DE CONNEXION MANUEL (SI URL VIDE)
     if not st.session_state.logged_in:
         with st.form("login"):
-            code = st.text_input("Code VIP", type="password")
+            st.markdown("### Identification")
+            code_input = st.text_input("Code d'Accès", placeholder="Collez votre code ici...")
             if st.form_submit_button("Entrer"):
-                if code == "VIP2025":
-                    st.session_state.logged_in = True
+                success, msg = attempt_login(code_input)
+                if success:
                     st.rerun()
                 else:
-                    st.error("Code incorrect.")
+                    st.error(msg)
         st.stop()
 
+    # C. APPLICATION CONNECTÉE
+    
     # SIDEBAR
     with st.sidebar:
-        st.success("Licence Active ✅")
+        if st.session_state.is_admin:
+            st.header("👑 God Mode")
+            st.subheader("Générateur de Codes")
+            if st.button("Créer Code Client (50 crédits)"):
+                new_code = create_new_user(50)
+                st.code(new_code, language=None)
+                # On génère le "Lien Magique" pour le client
+                base_url = "https://votre-app.streamlit.app/" # À CHANGER PAR VOTRE VRAIE URL
+                magic_link = f"{base_url}?code={new_code}"
+                st.text_input("Lien magique à envoyer :", magic_link)
+                st.success("Code ajouté !")
+        else:
+            st.header("Mon Espace")
+            st.info(f"Code : {st.session_state.user_code}")
+            st.metric("Crédits restants", st.session_state.credits_left)
+        
+        st.divider()
         if st.button("Déconnexion"):
             st.session_state.clear()
             st.rerun()
 
-    # ETAPE 1 : AUDIT
+    # LOGIQUE ALERTE CLIENT
+    is_client = not st.session_state.is_admin
+    is_last_free_trial = (is_client and st.session_state.total_runs == 2) 
+
+    # ETAPE 1
     if st.session_state.step == 1:
-        st.subheader("1. Le Crash-Test")
-        user_idea = st.text_area("Votre idée :", height=120)
+        st.subheader("Audit Stratégique")
         
-        if st.button("Lancer l'Audit 💥"):
-            if user_idea:
+        if is_client and st.session_state.total_runs < 3:
+            st.info(f"🌱 Essai Gratuit : {st.session_state.total_runs + 1}/3")
+        
+        user_idea = st.text_area("Votre idée :", height=120)
+        launch_btn = st.button("Lancer l'Audit")
+
+        confirm = True
+        if is_last_free_trial:
+            st.warning("⚠️ DERNIER ESSAI GRATUIT")
+            st.error("En validant, vous renoncez à la garantie de remboursement.")
+            confirm = st.checkbox("J'accepte ces conditions.")
+
+        if launch_btn:
+            if not confirm:
+                st.toast("Cochez la case pour continuer.")
+            elif user_idea:
+                if is_client:
+                    decrement_credits(st.session_state.user_code)
+                    st.session_state.credits_left -= 1
+                    st.session_state.total_runs += 1
+                
                 with st.spinner("Analyse..."):
                     audit, model = get_strategic_response(PROMPT_AUDIT.format(user_idea=user_idea))
                     st.session_state.audit = audit
@@ -130,39 +223,33 @@ def main():
                     st.session_state.step = 2
                     st.rerun()
 
-    # ETAPE 2 : RÉSULTAT
+    # ETAPE 2
     elif st.session_state.step == 2:
         st.caption(f"Cerveau : {st.session_state.model_used}")
         st.markdown(st.session_state.audit)
         
-        # --- BLOC GOOGLE FORM ---
         verdict_negatif = "NO-GO" in st.session_state.audit or "PIVOT" in st.session_state.audit
         form_link = create_google_form_link(st.session_state.idea, st.session_state.summary)
         
         st.markdown("---")
-        
         if verdict_negatif:
             st.error("🚨 **PROJET À RISQUE**")
-            st.write("Ne restez pas seul. Soumettez ce dossier pour analyse humaine.")
-            st.link_button("📤 Envoyer le dossier à l'Architecte (Formulaire)", form_link)
+            st.link_button("📤 Envoyer le dossier", form_link)
         else:
             st.success("✅ **POTENTIEL CONFIRMÉ**")
-            st.write("Passez à la vitesse supérieure.")
-            st.link_button("🚀 Candidater pour l'accompagnement", form_link)
-    
-        st.caption("Cela ouvrira un formulaire Google pré-rempli avec votre idée et l'audit.")
+            st.link_button("🚀 Candidater", form_link)
         st.markdown("---")
 
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🔄 Pivoter (IA)"):
+            if st.button("🔄 Pivoter"):
                 with st.spinner("Recherche..."):
                     res, _ = get_strategic_response(PROMPT_PIVOT.format(user_idea=st.session_state.idea))
                     st.session_state.pivot = res
                     st.session_state.step = 3
                     st.rerun()
         with col2:
-            if st.button("📋 Plan d'Action (IA)"):
+            if st.button("📋 Plan d'Action"):
                 st.session_state.choix = st.session_state.idea
                 st.session_state.step = 4
                 st.rerun()
@@ -171,7 +258,7 @@ def main():
             st.session_state.step = 1
             st.rerun()
 
-    # ETAPE 3 : PIVOTS
+    # SUITE...
     elif st.session_state.step == 3:
         st.markdown(st.session_state.pivot)
         choix = st.text_input("Choix :")
@@ -180,7 +267,6 @@ def main():
             st.session_state.step = 4
             st.rerun()
 
-    # ETAPE 4 : PLAN
     elif st.session_state.step == 4:
         st.subheader("Plan Tactique")
         if not st.session_state.plan:
@@ -192,14 +278,11 @@ def main():
         st.markdown(st.session_state.plan)
         st.download_button("Télécharger", st.session_state.plan, "Plan.md")
         
-        st.info("Besoin d'aide ?")
-        # Lien form pour le plan aussi
         plan_link = create_google_form_link(st.session_state.choix, st.session_state.summary)
-        st.link_button("📤 Envoyer ce plan à l'équipe", plan_link)
+        st.link_button("📤 Envoyer ce plan", plan_link)
         
         if st.button("Recommencer"):
-            st.session_state.clear()
-            st.session_state.logged_in = True
+            st.session_state.step = 1
             st.rerun()
 
 if __name__ == "__main__":
