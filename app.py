@@ -17,7 +17,7 @@ MASTER_CODE = "BOSS-2026"
 
 st.set_page_config(page_title="L'Architecte", page_icon="🏗️", layout="centered")
 
-# --- 2. BASE DE DONNÉES ---
+# --- 2. FONCTIONS SYSTÈME ---
 def init_db():
     conn = sqlite3.connect('clients.db')
     c = conn.cursor()
@@ -50,9 +50,8 @@ def create_new_user(credits=50):
     conn.close()
     return new_code
 
-init_db()
-
 # --- 3. SESSION ---
+init_db()
 defaults = {'logged_in': False, 'is_admin': False, 'user_code': None, 'credits_left': 0, 'total_runs': 0,
             'step': 1, 'audit': "", 'summary': "", 'idea': "", 'plan': "", 'pivot': ""}
 for key, value in defaults.items():
@@ -64,11 +63,10 @@ try:
     if "GOOGLE_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
     else:
-        st.error("❌ Pas de Clé API.")
-        st.stop()
-except Exception as e:
-    st.error(f"Erreur config : {e}")
-    st.stop()
+        # st.error("❌ Pas de Clé API.") # Désactivé pour le debug URL
+        pass
+except:
+    pass
 
 def get_strategic_response(prompt_text):
     try:
@@ -76,38 +74,22 @@ def get_strategic_response(prompt_text):
         response = model.generate_content(prompt_text)
         return response.text, "gemini-2.5-pro"
     except:
-        try:
-            model = genai.GenerativeModel('gemini-2.5-flash')
-            response = model.generate_content(prompt_text)
-            return response.text, "gemini-2.5-flash"
-        except Exception as e:
-            return f"❌ Erreur : {e}", "Aucun"
+        return "Erreur IA", "Aucun"
 
 def get_email_summary(full_audit_text):
-    try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        prompt = f"Résume ceci en 15 lignes pour formulaire contact. Pas de markdown.\nTEXTE: {full_audit_text}"
-        response = model.generate_content(prompt)
-        return response.text
-    except:
-        return "Voir rapport."
+    return "Résumé..."
 
 def create_google_form_link(idea, audit_summary):
-    safe_idea = urllib.parse.quote(idea[:500])
-    safe_audit = urllib.parse.quote(audit_summary)
-    return f"{FORM_URL}?entry.{ENTRY_ID_IDEA}={safe_idea}&entry.{ENTRY_ID_AUDIT}={safe_audit}"
+    return f"{FORM_URL}"
 
-# PROMPTS
-PROMPT_AUDIT = "RÔLE : Avocat du Diable. LIVRABLE : 1. VERDICT, 2. Risques, 3. Matrice DUR. PROJET : {user_idea}"
-PROMPT_PIVOT = "RÔLE : Innovation. MISSION : 5 Pivots radicaux. PROJET : {user_idea}"
-PROMPT_PLAN = "RÔLE : Chef de projet. OBJECTIF : Vente J+7. LIVRABLE : Plan d'action. STRATÉGIE : {selected_angle}"
+PROMPT_AUDIT = "..." 
+PROMPT_PIVOT = "..."
+PROMPT_PLAN = "..."
 
-# --- 5. LOGIQUE DE CONNEXION ---
+# --- 5. LOGIQUE LOGIN ---
 def attempt_login(code_input):
-    # Nettoyage agressif
     clean_code = str(code_input).strip().replace("'", "").replace('"', "")
     
-    # GOD MODE
     if clean_code == MASTER_CODE:
         st.session_state.logged_in = True
         st.session_state.is_admin = True
@@ -115,7 +97,6 @@ def attempt_login(code_input):
         st.session_state.credits_left = 999999
         return True, "Admin connecté"
     
-    # CLIENT MODE
     user_data = get_user_credits(clean_code)
     if user_data:
         credits, runs = user_data
@@ -128,56 +109,43 @@ def attempt_login(code_input):
             return True, "Client connecté"
         else:
             return False, "🔒 Crédits épuisés."
-    else:
-        return False, f"Code inconnu ({clean_code})"
+    return False, f"Code inconnu ({clean_code})"
 
-# --- 6. INTERFACE PRINCIPALE ---
+# --- 6. MAIN AVEC RAYONS X ---
 def main():
     
-    st.title("🏗️ L'Architecte")
+    # === ZONE RAYONS X (DEBUG) ===
+    # Affiche TOUT ce que l'application voit dans l'URL
+    st.write("--- MODE DEBUG ACTIF ---")
+    
+    # 1. On récupère les params bruts
+    query_params = st.query_params
+    st.write(f"🔍 **Contenu brut de l'URL :** `{query_params}`")
+    
+    # 2. On cherche spécifiquement 'code'
+    url_code = query_params.get("code", None)
+    st.write(f"🎯 **Code extrait :** `{url_code}`")
+    
+    st.write(f"🔑 **Code Maître attendu :** `{MASTER_CODE}`")
+    st.write("--------------------------")
 
-    # --- ZONE DE DIAGNOSTIC (TEMPORAIRE) ---
-    # Si on n'est pas connecté, on regarde ce qui se passe
-    if not st.session_state.logged_in:
-        
-        # 1. Récupération URL (Méthode Universelle)
-        url_code = None
-        try:
-            # Nouvelle méthode
-            if "code" in st.query_params:
-                url_code = st.query_params["code"]
-            # Ancienne méthode (fallback)
-            elif len(st.query_params) > 0:
-                # Parfois c'est un dictionnaire, parfois une liste
-                val = st.query_params.get("code")
-                url_code = val[0] if isinstance(val, list) else val
-        except:
-            pass
-        
-        # 2. Affichage Debug (Bleu)
-        if url_code:
-            st.info(f"🕵️ DIAGNOSTIC : Code détecté dans l'URL = '{url_code}'")
-            # Tentative immédiate
-            success, msg = attempt_login(url_code)
-            if success:
-                st.success(f"Connexion réussie : {msg}")
-                st.rerun()
-            else:
-                st.error(f"Échec connexion : {msg}. Vérifiez que '{url_code}' == '{MASTER_CODE}'")
-        
-        # Si pas de code détecté
+    # === TENTATIVE AUTO ===
+    if not st.session_state.logged_in and url_code:
+        success, msg = attempt_login(url_code)
+        if success:
+            st.success(f"✅ SUCCÈS : {msg}")
+            st.button("👉 CLIQUEZ ICI POUR ENTRER", on_click=st.rerun)
+            # On arrête tout ici pour forcer le clic
+            st.stop()
         else:
-            # Ne rien afficher ou un petit message discret
-            # st.caption("Aucun code détecté dans l'URL.")
-            pass
+            st.error(f"❌ ÉCHEC : {msg}")
 
-    # --- FIN ZONE DIAGNOSTIC ---
-
-    # B. LOGIN MANUEL
+    # === ECRAN LOGIN MANUEL ===
     if not st.session_state.logged_in:
+        st.title("🏗️ L'Architecte")
         with st.form("login"):
             st.markdown("### Identification")
-            code_input = st.text_input("Code d'Accès", placeholder="Collez votre code ici...")
+            code_input = st.text_input("Code d'Accès")
             if st.form_submit_button("Entrer"):
                 success, msg = attempt_login(code_input)
                 if success:
@@ -186,122 +154,28 @@ def main():
                     st.error(msg)
         st.stop()
 
-    # C. APP CONNECTÉE
+    # === APPLICATION NORMALE ===
+    # (Si on arrive ici, c'est qu'on est connecté)
+    
     with st.sidebar:
+        st.success("CONNECTÉ ✅")
         if st.session_state.is_admin:
-            st.header("👑 God Mode")
-            st.subheader("Générateur")
-            if st.button("Créer Code Client"):
+            st.write("👑 **MODE GOD**")
+            if st.button("Générer Code"):
                 new_code = create_new_user(50)
-                st.code(new_code, language=None)
-                # Lien automatique
-                st.code(f"https://gps-florent-vip.streamlit.app/?code={new_code}", language=None)
-                st.success("Ajouté !")
+                st.code(f"https://gps-florent-vip.streamlit.app/?code={new_code}")
         else:
-            st.header("Mon Espace")
-            st.info(f"Code : {st.session_state.user_code}")
-            st.metric("Crédits", st.session_state.credits_left)
+            st.write(f"Client : {st.session_state.user_code}")
         
-        st.divider()
         if st.button("Déconnexion"):
             st.session_state.clear()
             st.rerun()
 
-    is_client = not st.session_state.is_admin
-    is_last_free_trial = (is_client and st.session_state.total_runs == 2) 
-
-    # ETAPES
-    if st.session_state.step == 1:
-        st.subheader("Audit Stratégique")
-        if is_client and st.session_state.total_runs < 3:
-            st.info(f"🌱 Essai Gratuit : {st.session_state.total_runs + 1}/3")
-        
-        user_idea = st.text_area("Votre idée :", height=120)
-        launch_btn = st.button("Lancer l'Audit")
-
-        confirm = True
-        if is_last_free_trial:
-            st.warning("⚠️ DERNIER ESSAI GRATUIT")
-            st.error("En validant, vous renoncez au remboursement.")
-            confirm = st.checkbox("J'accepte.")
-
-        if launch_btn:
-            if not confirm:
-                st.toast("Confirmez la case.")
-            elif user_idea:
-                if is_client:
-                    decrement_credits(st.session_state.user_code)
-                    st.session_state.credits_left -= 1
-                    st.session_state.total_runs += 1
-                
-                with st.spinner("Analyse..."):
-                    audit, model = get_strategic_response(PROMPT_AUDIT.format(user_idea=user_idea))
-                    st.session_state.audit = audit
-                    st.session_state.model_used = model
-                    st.session_state.idea = user_idea
-                    st.session_state.summary = get_email_summary(audit)
-                    st.session_state.step = 2
-                    st.rerun()
-
-    elif st.session_state.step == 2:
-        st.caption(f"Cerveau : {st.session_state.model_used}")
-        st.markdown(st.session_state.audit)
-        
-        verdict_negatif = "NO-GO" in st.session_state.audit or "PIVOT" in st.session_state.audit
-        form_link = create_google_form_link(st.session_state.idea, st.session_state.summary)
-        
-        st.markdown("---")
-        if verdict_negatif:
-            st.error("🚨 **RISQUE ÉLEVÉ**")
-            st.link_button("📤 Envoyer le dossier", form_link)
-        else:
-            st.success("✅ **POTENTIEL**")
-            st.link_button("🚀 Candidater", form_link)
-        st.markdown("---")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 Pivoter"):
-                with st.spinner("Recherche..."):
-                    res, _ = get_strategic_response(PROMPT_PIVOT.format(user_idea=st.session_state.idea))
-                    st.session_state.pivot = res
-                    st.session_state.step = 3
-                    st.rerun()
-        with col2:
-            if st.button("📋 Plan"):
-                st.session_state.choix = st.session_state.idea
-                st.session_state.step = 4
-                st.rerun()
-        
-        if st.button("Nouveau"):
-            st.session_state.step = 1
-            st.rerun()
-
-    elif st.session_state.step == 3:
-        st.markdown(st.session_state.pivot)
-        choix = st.text_input("Choix :")
-        if st.button("Générer Plan"):
-            st.session_state.choix = choix
-            st.session_state.step = 4
-            st.rerun()
-
-    elif st.session_state.step == 4:
-        st.subheader("Plan Tactique")
-        if not st.session_state.plan:
-            with st.spinner("Rédaction..."):
-                res, _ = get_strategic_response(PROMPT_PLAN.format(selected_angle=st.session_state.choix))
-                st.session_state.plan = res
-                st.session_state.summary = get_email_summary(res)
-        
-        st.markdown(st.session_state.plan)
-        st.download_button("Télécharger", st.session_state.plan, "Plan.md")
-        
-        plan_link = create_google_form_link(st.session_state.choix, st.session_state.summary)
-        st.link_button("📤 Envoyer ce plan", plan_link)
-        
-        if st.button("Recommencer"):
-            st.session_state.step = 1
-            st.rerun()
+    st.title("🏗️ L'Architecte (Connecté)")
+    st.write("Bienvenue dans l'espace sécurisé.")
+    
+    # ... Je simplifie l'affichage pour le test ...
+    st.info("Le test de connexion est réussi. Si vous voyez ça, l'auto-login fonctionne.")
 
 if __name__ == "__main__":
     main()
