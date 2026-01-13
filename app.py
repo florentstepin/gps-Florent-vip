@@ -271,4 +271,35 @@ def main():
                 st.session_state.step = 4
                 st.rerun()
         
-        if
+        if st.button("Nouvelle Analyse"):
+            st.session_state.step = 1
+            st.rerun()
+
+    elif st.session_state.step == 3:
+        st.markdown(st.session_state.pivot)
+        choix = st.text_input("Choix :")
+        if st.button("Générer Plan"):
+            st.session_state.choix = choix
+            st.session_state.step = 4
+            st.rerun()
+
+    elif st.session_state.step == 4:
+        st.subheader("Plan Tactique")
+        if not st.session_state.plan:
+            with st.spinner("Rédaction..."):
+                res, _ = get_strategic_response(PROMPT_PLAN.format(selected_angle=st.session_state.choix))
+                st.session_state.plan = res
+                st.session_state.summary = get_email_summary(res)
+        
+        st.markdown(st.session_state.plan)
+        st.download_button("Télécharger", st.session_state.plan, "Plan.md")
+        
+        plan_link = create_google_form_link(st.session_state.choix, st.session_state.summary)
+        st.link_button("📤 Envoyer ce plan", plan_link)
+        
+        if st.button("Recommencer"):
+            st.session_state.step = 1
+            st.rerun()
+
+if __name__ == "__main__":
+    main()
