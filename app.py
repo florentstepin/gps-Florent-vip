@@ -10,6 +10,8 @@ ENTRY_ID_EMAIL = "121343077"
 ENTRY_ID_IDEA =  "1974870243"
 ENTRY_ID_AUDIT = "1147735867"
 EMAIL_CONTACT = "photos.studio.ia@gmail.com"
+
+# VOTRE CODE MAÎTRE (Vérifiez qu'il correspond exactement à votre URL)
 MASTER_CODE = "BOSS-2026" 
 # ------------------------
 
@@ -102,8 +104,12 @@ PROMPT_PLAN = "RÔLE : Chef de projet. OBJECTIF : Vente J+7. LIVRABLE : Plan d'a
 
 # --- 5. LOGIQUE DE CONNEXION ---
 def attempt_login(code_input):
-    clean_code = code_input.strip()
+    # On nettoie le code (espaces, majuscules forcées)
+    clean_code = str(code_input).strip()
     
+    # DEBUG : Voir ce que l'ordi reçoit vraiment
+    # st.write(f"Debug: Code reçu = '{clean_code}' vs Master = '{MASTER_CODE}'") 
+
     # GOD MODE
     if clean_code == MASTER_CODE:
         st.session_state.logged_in = True
@@ -126,28 +132,40 @@ def attempt_login(code_input):
         else:
             return False, "🔒 Crédits épuisés."
     else:
-        return False, "❌ Code invalide."
+        return False, f"❌ Code inconnu : {clean_code}"
 
 # --- 6. INTERFACE PRINCIPALE ---
 def main():
     
-    # A. VÉRIFICATION URL (AUTO-LOGIN)
-    # On regarde si ?code=... est dans l'URL
-    query_params = st.query_params
-    url_code = query_params.get("code", None)
-
-    # Si on n'est pas connecté MAIS qu'il y a un code dans l'URL -> On tente le login auto
-    if not st.session_state.logged_in and url_code:
-        success, msg = attempt_login(url_code)
-        if success:
-            st.toast(f"Connexion automatique : {msg}")
-            st.rerun() # On recharge pour afficher l'interface
-        else:
-            st.error(msg)
-
     st.title("🏗️ L'Architecte")
 
-    # B. ÉCRAN DE CONNEXION MANUEL (SI URL VIDE)
+    # A. DÉTECTION URL RENFORCÉE
+    if not st.session_state.logged_in:
+        try:
+            # On tente de récupérer le code (nouvelle méthode)
+            url_code = st.query_params.get("code", None)
+            
+            # Si vide, on tente l'ancienne méthode (au cas où)
+            if not url_code:
+                try:
+                    params = st.experimental_get_query_params()
+                    url_code = params.get("code", [None])[0]
+                except:
+                    pass
+
+            if url_code:
+                success, msg = attempt_login(url_code)
+                if success:
+                    st.success(f"🔓 Connexion auto : {msg}")
+                    st.rerun()
+                else:
+                    # Affiche l'erreur si le code URL est rejeté (très utile pour débugger)
+                    st.warning(f"⚠️ Lien détecté mais connexion échouée : {msg}")
+        except Exception as e:
+            # En cas de crash bizarre sur les URL
+            st.caption(f"Info chargement : {e}")
+
+    # B. ÉCRAN DE CONNEXION MANUEL
     if not st.session_state.logged_in:
         with st.form("login"):
             st.markdown("### Identification")
@@ -170,10 +188,11 @@ def main():
             if st.button("Créer Code Client (50 crédits)"):
                 new_code = create_new_user(50)
                 st.code(new_code, language=None)
-                # On génère le "Lien Magique" pour le client
-                base_url = "https://votre-app.streamlit.app/" # À CHANGER PAR VOTRE VRAIE URL
-                magic_link = f"{base_url}?code={new_code}"
-                st.text_input("Lien magique à envoyer :", magic_link)
+                
+                # Générateur de lien magique
+                # Astuce : On récupère l'URL actuelle du navigateur si possible, sinon on met un placeholder
+                st.caption("Lien à envoyer :")
+                st.code(f"https://[VOTRE-APP].streamlit.app/?code={new_code}", language=None)
                 st.success("Code ajouté !")
         else:
             st.header("Mon Espace")
@@ -185,11 +204,10 @@ def main():
             st.session_state.clear()
             st.rerun()
 
-    # LOGIQUE ALERTE CLIENT
+    # SUITE DE L'APP...
     is_client = not st.session_state.is_admin
     is_last_free_trial = (is_client and st.session_state.total_runs == 2) 
 
-    # ETAPE 1
     if st.session_state.step == 1:
         st.subheader("Audit Stratégique")
         
@@ -223,7 +241,6 @@ def main():
                     st.session_state.step = 2
                     st.rerun()
 
-    # ETAPE 2
     elif st.session_state.step == 2:
         st.caption(f"Cerveau : {st.session_state.model_used}")
         st.markdown(st.session_state.audit)
@@ -254,36 +271,4 @@ def main():
                 st.session_state.step = 4
                 st.rerun()
         
-        if st.button("Nouvelle Analyse"):
-            st.session_state.step = 1
-            st.rerun()
-
-    # SUITE...
-    elif st.session_state.step == 3:
-        st.markdown(st.session_state.pivot)
-        choix = st.text_input("Choix :")
-        if st.button("Générer Plan"):
-            st.session_state.choix = choix
-            st.session_state.step = 4
-            st.rerun()
-
-    elif st.session_state.step == 4:
-        st.subheader("Plan Tactique")
-        if not st.session_state.plan:
-            with st.spinner("Rédaction..."):
-                res, _ = get_strategic_response(PROMPT_PLAN.format(selected_angle=st.session_state.choix))
-                st.session_state.plan = res
-                st.session_state.summary = get_email_summary(res)
-        
-        st.markdown(st.session_state.plan)
-        st.download_button("Télécharger", st.session_state.plan, "Plan.md")
-        
-        plan_link = create_google_form_link(st.session_state.choix, st.session_state.summary)
-        st.link_button("📤 Envoyer ce plan", plan_link)
-        
-        if st.button("Recommencer"):
-            st.session_state.step = 1
-            st.rerun()
-
-if __name__ == "__main__":
-    main()
+        if
