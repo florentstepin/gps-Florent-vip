@@ -11,7 +11,7 @@ ENTRY_ID_IDEA =  "1974870243"
 ENTRY_ID_AUDIT = "1147735867"
 EMAIL_CONTACT = "photos.studio.ia@gmail.com"
 
-# VOTRE CODE MAÎTRE (Vérifiez qu'il correspond exactement à votre URL)
+# VOTRE CODE MAÎTRE
 MASTER_CODE = "BOSS-2026" 
 # ------------------------
 
@@ -104,12 +104,9 @@ PROMPT_PLAN = "RÔLE : Chef de projet. OBJECTIF : Vente J+7. LIVRABLE : Plan d'a
 
 # --- 5. LOGIQUE DE CONNEXION ---
 def attempt_login(code_input):
-    # On nettoie le code (espaces, majuscules forcées)
-    clean_code = str(code_input).strip()
+    # Nettoyage agressif
+    clean_code = str(code_input).strip().replace("'", "").replace('"', "")
     
-    # DEBUG : Voir ce que l'ordi reçoit vraiment
-    # st.write(f"Debug: Code reçu = '{clean_code}' vs Master = '{MASTER_CODE}'") 
-
     # GOD MODE
     if clean_code == MASTER_CODE:
         st.session_state.logged_in = True
@@ -132,40 +129,51 @@ def attempt_login(code_input):
         else:
             return False, "🔒 Crédits épuisés."
     else:
-        return False, f"❌ Code inconnu : {clean_code}"
+        return False, f"Code inconnu ({clean_code})"
 
 # --- 6. INTERFACE PRINCIPALE ---
 def main():
     
     st.title("🏗️ L'Architecte")
 
-    # A. DÉTECTION URL RENFORCÉE
+    # --- ZONE DE DIAGNOSTIC (TEMPORAIRE) ---
+    # Si on n'est pas connecté, on regarde ce qui se passe
     if not st.session_state.logged_in:
+        
+        # 1. Récupération URL (Méthode Universelle)
+        url_code = None
         try:
-            # On tente de récupérer le code (nouvelle méthode)
-            url_code = st.query_params.get("code", None)
-            
-            # Si vide, on tente l'ancienne méthode (au cas où)
-            if not url_code:
-                try:
-                    params = st.experimental_get_query_params()
-                    url_code = params.get("code", [None])[0]
-                except:
-                    pass
+            # Nouvelle méthode
+            if "code" in st.query_params:
+                url_code = st.query_params["code"]
+            # Ancienne méthode (fallback)
+            elif len(st.query_params) > 0:
+                # Parfois c'est un dictionnaire, parfois une liste
+                val = st.query_params.get("code")
+                url_code = val[0] if isinstance(val, list) else val
+        except:
+            pass
+        
+        # 2. Affichage Debug (Bleu)
+        if url_code:
+            st.info(f"🕵️ DIAGNOSTIC : Code détecté dans l'URL = '{url_code}'")
+            # Tentative immédiate
+            success, msg = attempt_login(url_code)
+            if success:
+                st.success(f"Connexion réussie : {msg}")
+                st.rerun()
+            else:
+                st.error(f"Échec connexion : {msg}. Vérifiez que '{url_code}' == '{MASTER_CODE}'")
+        
+        # Si pas de code détecté
+        else:
+            # Ne rien afficher ou un petit message discret
+            # st.caption("Aucun code détecté dans l'URL.")
+            pass
 
-            if url_code:
-                success, msg = attempt_login(url_code)
-                if success:
-                    st.success(f"🔓 Connexion auto : {msg}")
-                    st.rerun()
-                else:
-                    # Affiche l'erreur si le code URL est rejeté (très utile pour débugger)
-                    st.warning(f"⚠️ Lien détecté mais connexion échouée : {msg}")
-        except Exception as e:
-            # En cas de crash bizarre sur les URL
-            st.caption(f"Info chargement : {e}")
+    # --- FIN ZONE DIAGNOSTIC ---
 
-    # B. ÉCRAN DE CONNEXION MANUEL
+    # B. LOGIN MANUEL
     if not st.session_state.logged_in:
         with st.form("login"):
             st.markdown("### Identification")
@@ -178,39 +186,33 @@ def main():
                     st.error(msg)
         st.stop()
 
-    # C. APPLICATION CONNECTÉE
-    
-    # SIDEBAR
+    # C. APP CONNECTÉE
     with st.sidebar:
         if st.session_state.is_admin:
             st.header("👑 God Mode")
-            st.subheader("Générateur de Codes")
-            if st.button("Créer Code Client (50 crédits)"):
+            st.subheader("Générateur")
+            if st.button("Créer Code Client"):
                 new_code = create_new_user(50)
                 st.code(new_code, language=None)
-                
-                # Générateur de lien magique
-                # Astuce : On récupère l'URL actuelle du navigateur si possible, sinon on met un placeholder
-                st.caption("Lien à envoyer :")
-                st.code(f"https://[VOTRE-APP].streamlit.app/?code={new_code}", language=None)
-                st.success("Code ajouté !")
+                # Lien automatique
+                st.code(f"https://gps-florent-vip.streamlit.app/?code={new_code}", language=None)
+                st.success("Ajouté !")
         else:
             st.header("Mon Espace")
             st.info(f"Code : {st.session_state.user_code}")
-            st.metric("Crédits restants", st.session_state.credits_left)
+            st.metric("Crédits", st.session_state.credits_left)
         
         st.divider()
         if st.button("Déconnexion"):
             st.session_state.clear()
             st.rerun()
 
-    # SUITE DE L'APP...
     is_client = not st.session_state.is_admin
     is_last_free_trial = (is_client and st.session_state.total_runs == 2) 
 
+    # ETAPES
     if st.session_state.step == 1:
         st.subheader("Audit Stratégique")
-        
         if is_client and st.session_state.total_runs < 3:
             st.info(f"🌱 Essai Gratuit : {st.session_state.total_runs + 1}/3")
         
@@ -220,12 +222,12 @@ def main():
         confirm = True
         if is_last_free_trial:
             st.warning("⚠️ DERNIER ESSAI GRATUIT")
-            st.error("En validant, vous renoncez à la garantie de remboursement.")
-            confirm = st.checkbox("J'accepte ces conditions.")
+            st.error("En validant, vous renoncez au remboursement.")
+            confirm = st.checkbox("J'accepte.")
 
         if launch_btn:
             if not confirm:
-                st.toast("Cochez la case pour continuer.")
+                st.toast("Confirmez la case.")
             elif user_idea:
                 if is_client:
                     decrement_credits(st.session_state.user_code)
@@ -250,10 +252,10 @@ def main():
         
         st.markdown("---")
         if verdict_negatif:
-            st.error("🚨 **PROJET À RISQUE**")
+            st.error("🚨 **RISQUE ÉLEVÉ**")
             st.link_button("📤 Envoyer le dossier", form_link)
         else:
-            st.success("✅ **POTENTIEL CONFIRMÉ**")
+            st.success("✅ **POTENTIEL**")
             st.link_button("🚀 Candidater", form_link)
         st.markdown("---")
 
@@ -266,12 +268,12 @@ def main():
                     st.session_state.step = 3
                     st.rerun()
         with col2:
-            if st.button("📋 Plan d'Action"):
+            if st.button("📋 Plan"):
                 st.session_state.choix = st.session_state.idea
                 st.session_state.step = 4
                 st.rerun()
         
-        if st.button("Nouvelle Analyse"):
+        if st.button("Nouveau"):
             st.session_state.step = 1
             st.rerun()
 
