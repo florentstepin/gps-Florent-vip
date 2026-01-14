@@ -1,57 +1,81 @@
 import streamlit as st
 import google.generativeai as genai
 import urllib.parse
-import sqlite3
 import uuid
+from supabase import create_client, Client
 
 # --- 1. CONFIGURATION ---
-# VOS INFOS DU FORMULAIRE GOOGLE (A VÉRIFIER)
-FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScKU17kIr4t_Wiwi6uTMd0a2CCUMtqOU0w_yEHb8uAXVfgCZw/viewform"
+FORM_URL = "https://docs.google.com/forms/d/e/VOTRE_ID_DE_FORMULAIRE/viewform"
 ENTRY_ID_EMAIL = "121343077"
 ENTRY_ID_IDEA =  "1974870243"
 ENTRY_ID_AUDIT = "1147735867"
 EMAIL_CONTACT = "photos.studio.ia@gmail.com"
-
-# VOTRE CLÉ MAÎTRE
 MASTER_CODE = "BOSS-2026" 
-# ------------------------
 
 st.set_page_config(page_title="L'Architecte", page_icon="🏗️", layout="centered")
 
-# --- 2. BASE DE DONNÉES ---
-def init_db():
-    conn = sqlite3.connect('clients.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (access_code TEXT PRIMARY KEY, credits INT, total_runs INT)''')
-    conn.commit()
-    conn.close()
+# --- 2. CONNEXION SUPABASE (BDD EXTERNE & ROBUSTE) ---
+# On initialise la connexion une seule fois pour gagner du temps
+@st.cache_resource
+def init_supabase():
+    try:
+        url = st.secrets["supabase"]["url"]
+        key = st.secrets["supabase"]["key"]
+        return create_client(url, key)
+    except:
+        return None
+
+supabase = init_supabase()
+
+if not supabase:
+    st.error("🚨 Erreur critique : Base de données non connectée. Vérifiez les secrets.")
+    st.stop()
+
+# --- FONCTIONS BDD ---
 
 def get_user_credits(code):
-    conn = sqlite3.connect('clients.db')
-    c = conn.cursor()
-    c.execute("SELECT credits, total_runs FROM users WHERE access_code=?", (code,))
-    result = c.fetchone()
-    conn.close()
-    return result
+    """Récupère les infos client depuis Supabase"""
+    try:
+        # On cherche dans la table 'users', la ligne où access_code = code
+        response = supabase.table("users").select("*").eq("access_code", code).execute()
+        
+        # Si on trouve un résultat
+        if response.data and len(response.data) > 0:
+            user = response.data[0]
+            return user['credits'], user['total_runs']
+        return None
+    except Exception as e:
+        st.error(f"Erreur DB: {e}")
+        return None
 
 def decrement_credits(code):
-    conn = sqlite3.connect('clients.db')
-    c = conn.cursor()
-    c.execute("UPDATE users SET credits = credits - 1, total_runs = total_runs + 1 WHERE access_code=?", (code,))
-    conn.commit()
-    conn.close()
+    """Enlève 1 crédit et ajoute 1 run"""
+    try:
+        # On récupère d'abord les valeurs actuelles pour être sûr
+        current_credits, current_runs = get_user_credits(code)
+        
+        # On met à jour
+        supabase.table("users").update({
+            "credits": current_credits - 1,
+            "total_runs": current_runs + 1
+        }).eq("access_code", code).execute()
+    except Exception as e:
+        st.error(f"Erreur update DB: {e}")
 
 def create_new_user(credits=50):
-    conn = sqlite3.connect('clients.db')
-    c = conn.cursor()
+    """Crée un nouveau code dans Supabase"""
     new_code = "KEY-" + str(uuid.uuid4())[:8].upper()
-    c.execute("INSERT INTO users VALUES (?, ?, 0)", (new_code, credits))
-    conn.commit()
-    conn.close()
-    return new_code
-
-init_db()
+    try:
+        data = {
+            "access_code": new_code,
+            "credits": credits,
+            "total_runs": 0
+        }
+        supabase.table("users").insert(data).execute()
+        return new_code
+    except Exception as e:
+        st.error(f"Erreur création user: {e}")
+        return "Erreur"
 
 # --- 3. SESSION ---
 defaults = {'logged_in': False, 'is_admin': False, 'user_code': None, 'credits_left': 0, 'total_runs': 0,
@@ -65,7 +89,7 @@ try:
     if "GOOGLE_API_KEY" in st.secrets:
         genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
     else:
-        st.error("❌ Pas de Clé API configurée.")
+        st.error("❌ Pas de Clé API.")
         st.stop()
 except Exception as e:
     st.error(f"Erreur config : {e}")
@@ -98,14 +122,12 @@ def create_google_form_link(idea, audit_summary):
     safe_audit = urllib.parse.quote(audit_summary)
     return f"{FORM_URL}?entry.{ENTRY_ID_IDEA}={safe_idea}&entry.{ENTRY_ID_AUDIT}={safe_audit}"
 
-# PROMPTS
 PROMPT_AUDIT = "RÔLE : Avocat du Diable. LIVRABLE : 1. VERDICT (GO/NO-GO), 2. Risques Fatals, 3. Matrice DUR. PROJET : {user_idea}"
 PROMPT_PIVOT = "RÔLE : Innovation. MISSION : 5 Pivots radicaux. PROJET : {user_idea}"
 PROMPT_PLAN = "RÔLE : Chef de projet. OBJECTIF : Vente J+7. LIVRABLE : Plan d'action. STRATÉGIE : {selected_angle}"
 
 # --- 5. LOGIQUE DE CONNEXION ---
 def attempt_login(code_input):
-    # Nettoyage de la saisie
     clean_code = str(code_input).strip().replace("'", "").replace('"', "")
     
     # CAS ADMIN
@@ -117,9 +139,9 @@ def attempt_login(code_input):
         return True, "Admin connecté"
     
     # CAS CLIENT
-    user_data = get_user_credits(clean_code)
-    if user_data:
-        credits, runs = user_data
+    result = get_user_credits(clean_code) # Appel Supabase
+    if result:
+        credits, runs = result
         if credits > 0:
             st.session_state.logged_in = True
             st.session_state.is_admin = False
@@ -135,19 +157,16 @@ def attempt_login(code_input):
 # --- 6. INTERFACE PRINCIPALE ---
 def main():
     
-    # A. TENTATIVE AUTO (Url)
+    # A. TENTATIVE AUTO
     if not st.session_state.logged_in:
         try:
-            # On cherche le code dans l'URL
             url_code = None
             if "code" in st.query_params:
                 url_code = st.query_params["code"]
-            # Fallback ancienne méthode
             elif len(st.query_params) > 0:
                  val = list(st.query_params.values())[0]
                  url_code = val if isinstance(val, str) else val[0]
             
-            # Si on trouve un code, on tente le login
             if url_code:
                 success, msg = attempt_login(url_code)
                 if success:
@@ -158,7 +177,7 @@ def main():
 
     st.title("🏗️ L'Architecte")
 
-    # B. LOGIN MANUEL (Si Auto échoue)
+    # B. LOGIN MANUEL
     if not st.session_state.logged_in:
         with st.form("login"):
             st.markdown("### Identification")
@@ -175,7 +194,7 @@ def main():
     with st.sidebar:
         if st.session_state.is_admin:
             st.header("👑 God Mode")
-            st.success("Admin Connecté")
+            st.success("Base de données : Supabase 🟢")
             st.divider()
             
             st.subheader("Générateur de Codes")
@@ -183,11 +202,10 @@ def main():
                 new_code = create_new_user(50)
                 st.write("Code généré :")
                 st.code(new_code, language=None)
-                
-                st.write("👇 **Lien à envoyer au client :**")
-                # On formate le lien correctement avec le slash et le point d'interrogation
-                st.code(f"https://[VOTRE-URL].streamlit.app/?code={new_code}", language=None)
-                st.success("Ajouté à la base !")
+                st.write("👇 **Lien client :**")
+                # Remplacez [VOTRE-APP] par le vrai nom de votre sous-domaine
+                st.code(f"https://[VOTRE-APP].streamlit.app/?code={new_code}", language=None)
+                st.success("Sauvegardé dans le Cloud !")
                 
         else:
             st.header("Mon Espace")
@@ -199,7 +217,6 @@ def main():
             st.session_state.clear()
             st.rerun()
 
-    # Suite de la logique client...
     is_client = not st.session_state.is_admin
     is_last_free_trial = (is_client and st.session_state.total_runs == 2) 
 
@@ -271,7 +288,7 @@ def main():
             st.session_state.step = 1
             st.rerun()
 
-    # ETAPE 3 : PIVOT
+    # ETAPE 3 & 4 (Le reste est identique...)
     elif st.session_state.step == 3:
         st.markdown(st.session_state.pivot)
         choix = st.text_input("Quelle option choisissez-vous ?")
@@ -280,7 +297,6 @@ def main():
             st.session_state.step = 4
             st.rerun()
 
-    # ETAPE 4 : PLAN
     elif st.session_state.step == 4:
         st.subheader("Plan Tactique")
         if not st.session_state.plan:
