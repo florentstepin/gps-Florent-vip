@@ -230,7 +230,7 @@ def main():
                 st.code(new_code, language=None)
                 st.write("👇 **Lien client :**")
                 # Remplacez [VOTRE-APP] par le vrai nom de votre sous-domaine
-                st.code(f"https://[VOTRE-APP].streamlit.app/?code={new_code}", language=None)
+                st.code(f"https://gps-florent-vip.streamlit.app/?code={new_code}", language=None)
                 st.success("Sauvegardé dans le Cloud !")
                 
         else:
