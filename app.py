@@ -24,12 +24,38 @@ def init_supabase():
         return create_client(url, key)
     except:
         return None
+# --- 2. CONNEXION SUPABASE (MODE DIAGNOSTIC) ---
+@st.cache_resource
+def init_supabase():
+    # TEST 1 : La librairie est-elle installée ?
+    try:
+        from supabase import create_client, Client
+    except ImportError:
+        st.error("🛑 ERREUR INSTALLATION : Le module 'supabase' n'est pas trouvé. Vérifiez l'orthographe dans requirements.txt")
+        return None
+
+    # TEST 2 : La section [supabase] existe-t-elle ?
+    if "supabase" not in st.secrets:
+        st.error("🛑 ERREUR FORMAT : Streamlit ne voit pas l'en-tête [supabase] dans les secrets.")
+        st.write("Ce que je vois dans les secrets :", st.secrets.keys())
+        return None
+
+    # TEST 3 : Les clés sont-elles correctes ?
+    try:
+        url = st.secrets["supabase"]["url"]
+        key = st.secrets["supabase"]["key"]
+        
+        # Petit test visuel (sans afficher la clé entière pour la sécurité)
+        if not url.startswith("https://"):
+            st.error(f"🛑 ERREUR URL : Votre URL semble bizarre : {url}")
+        
+        return create_client(url, key)
+    except Exception as e:
+        st.error(f"🛑 ERREUR TECHNIQUE PRÉCISE : {e}")
+        return None
 
 supabase = init_supabase()
 
-if not supabase:
-    st.error("🚨 Erreur critique : Base de données non connectée. Vérifiez les secrets.")
-    st.stop()
 
 # --- FONCTIONS BDD ---
 
