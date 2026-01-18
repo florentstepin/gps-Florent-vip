@@ -5,12 +5,11 @@ import json
 import time
 
 # --- CONFIGURATION PAGE ---
-st.set_page_config(page_title="Stratège IA (Final)", page_icon="🚀", layout="wide")
+st.set_page_config(page_title="Stratège IA 2026 (Pro)", page_icon="🧠", layout="wide")
 
 # ==============================================================================
-# 🛑 ZONE DE CONFIGURATION (VOS CLÉS)
+# 🛑 ZONE DE CONFIGURATION
 # ==============================================================================
-
 # 1. Vos clés SUPABASE 
 SUPABASE_URL = "https://idvkrilkrfpzdmmmxgnj.supabase.co" 
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkdmtyaWxrcmZwemRtbW14Z25qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzNjY4NTIsImV4cCI6MjA4Mzk0Mjg1Mn0.pmjlyfNbe_4V4j26KeiFgUkNzI9tz9zPY3DwJho_RRU"
@@ -18,14 +17,12 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 GOOGLE_API_KEY = "AIzaSyCHXZecD22-YyrAhiKUkgli4aBzKsWgAeg"
 # 3. Votre lien de paiement 
 LIEN_PAIEMENT = "https://ia-brainstormer.lemonsqueezy.com/checkout/buy/df3c85cc-c30d-4e33-b40a-0e1ee4ebab67"
-# 4. Modèle IA
-MODEL_NAME = 'gemini-2.5-flash'
+# 4. Modèle 2026 "Thinking"
+# On utilise le PRO pour la profondeur de raisonnement.
+MODEL_NAME = 'gemini-2.5-pro'
 # 5. Lien "Besoin d'un regard humain" (Architecte) - Votre Google Form
 LIEN_ARCHITECTE = "https://docs.google.com/forms/d/e/1FAIpQLScKU17kIr4t_Wiwi6uTMd0a2CCUMtqOU0w_yEHb8uAXVfgCZw/viewform?usp=dialog"
 
-
-# ==============================================================================
-# FIN CONFIGURATION
 # ==============================================================================
 
 # --- CONNEXIONS ---
@@ -43,9 +40,10 @@ if "analysis_data" not in st.session_state: st.session_state.analysis_data = {}
 if "selected_pivot" not in st.session_state: st.session_state.selected_pivot = None
 if "initial_idea" not in st.session_state: st.session_state.initial_idea = ""
 
-# --- FONCTIONS INTELLIGENTES (Compatible UUID) ---
+# --- FONCTIONS ROBUSTES ---
 
 def get_user(code):
+    """Récupère l'utilisateur depuis Supabase"""
     try:
         code = str(code).strip()
         res = supabase.table("users").select("*").eq("access_code", code).execute()
@@ -55,35 +53,25 @@ def get_user(code):
     return None
 
 def debit_credit_smart(user_obj, current):
-    """
-    S'adapte automatiquement : fonctionne avec 'uuid' OU 'id'
-    """
+    """Débite le crédit et retourne la nouvelle valeur"""
     try:
-        # 1. Détection de la colonne ID (uuid ou id)
-        user_id = None
-        column_name = "id" # par défaut
+        # 1. Identifier l'utilisateur (UUID ou ID)
+        user_id = user_obj.get("uuid") or user_obj.get("id")
+        col_name = "uuid" if user_obj.get("uuid") else "id"
         
-        if "uuid" in user_obj:
-            user_id = user_obj["uuid"]
-            column_name = "uuid"
-        elif "id" in user_obj:
-            user_id = user_obj["id"]
-            column_name = "id"
-        
-        # Sécurité si rien trouvé
         if not user_id:
-            st.error("Erreur technique : Impossible de trouver l'ID utilisateur (uuid manquant).")
+            st.error("Erreur critique : ID utilisateur introuvable.")
             return current
 
-        # 2. Calcul du nouveau solde
+        # 2. Calculer
         new_balance = max(0, current - 1)
         
-        # 3. Mise à jour en utilisant le bon nom de colonne
-        supabase.table("users").update({"credits": new_balance}).eq(column_name, user_id).execute()
+        # 3. Mettre à jour Supabase
+        supabase.table("users").update({"credits": new_balance}).eq(col_name, user_id).execute()
+        
         return new_balance
-
     except Exception as e:
-        st.error(f"Erreur de débit : {e}")
+        st.error(f"Erreur débit : {e}")
         return current
 
 def save_json():
@@ -120,7 +108,7 @@ if "user" not in st.session_state:
 
 # --- LOGIN ---
 if "user" not in st.session_state:
-    st.title("🔐 Accès VIP")
+    st.title("🔐 Accès Stratège 2026")
     c_input = st.text_input("Code d'accès :")
     if st.button("Valider"):
         u = get_user(c_input)
@@ -136,11 +124,9 @@ credits = user.get("credits", 0)
 
 with st.sidebar:
     st.header(f"Compte : {user.get('email', 'Email inconnu')}")
-    
-    # Affichage intelligent de l'ID pour vérification
-    user_id_display = user.get("uuid") or user.get("id") or "Inconnu"
-    st.caption(f"ID: {user_id_display}")
+    st.caption(f"Moteur: {MODEL_NAME}")
 
+    # Affiche le crédit actuel (Directement depuis la session)
     if credits > 0:
         st.metric("Crédits", credits)
     else:
@@ -157,39 +143,51 @@ with st.sidebar:
         st.rerun()
 
 # --- MAIN ---
-st.title(f"🚀 Stratège IA")
+st.title(f"🧠 Stratège IA (Thinking Mode)")
 
-steps = ["1. Crash Test", "2. Pivot", "3. GPS"]
+steps = ["1. Analyse Profonde", "2. Pivot", "3. GPS"]
 st.progress(st.session_state.step / 3)
 st.caption(f"Phase : {steps[min(st.session_state.step-1, 2)]}")
 
 # PHASE 1
 if st.session_state.step == 1:
-    st.subheader("1️⃣ L'Avocat du Diable")
+    st.subheader("1️⃣ L'Avocat du Diable (Mode Raisonnement)")
     if credits > 0:
-        txt = st.text_area("Votre idée :", value=st.session_state.initial_idea)
-        if st.button("Analyser (1 crédit)"):
+        txt = st.text_area("Votre idée :", value=st.session_state.initial_idea, height=150)
+        if st.button("Lancer l'analyse (1 crédit)"):
             if not txt: st.warning("Idée vide ?")
             else:
                 st.session_state.initial_idea = txt
-                with st.spinner("Analyse..."):
+                with st.spinner("L'IA réfléchit étape par étape (Deep Thinking)..."):
                     try:
-                        prompt = f"""Analyse l'idée : '{txt}'.
-                        Rôle : Investisseur critique.
-                        Output Markdown :
-                        1. 3 Failles critiques.
-                        2. Verdict : [GO], [NOGO] ou [PIVOT].
-                        Justifie."""
+                        # PROMPT THINKING
+                        prompt = f"""
+                        Tu es un Expert Stratège Senior. Analyse : "{txt}".
+                        
+                        INSTRUCTION (Chain of Thought):
+                        Ne réponds pas vite. Analyse le marché, la psycho client et la tech.
+                        
+                        RÉPONSE (Markdown):
+                        1. **CONTEXTE & ANALYSE MACRO** : Pertinence 2026.
+                        2. **3 FAILLES MORTELLES** : Ce que les autres ne voient pas.
+                        3. **BIAIS COGNITIF** : L'angle mort du créateur.
+                        4. **VERDICT** : [GO], [NOGO] ou [PIVOT].
+                        5. **JUSTIFICATION** : Pourquoi.
+                        """
                         
                         res = model.generate_content(prompt)
                         st.session_state.analysis_data["step1"] = res.text
                         
-                        # DÉBIT INTELLIGENT (UUID ou ID)
+                        # --- DÉBIT & MISE À JOUR ---
                         new_c = debit_credit_smart(user, credits)
                         
+                        # On met à jour la session IMMÉDIATEMENT
                         user["credits"] = new_c
                         st.session_state["user"] = user
+                        
+                        # On force le rechargement pour mettre à jour l'affichage
                         st.rerun()
+
                     except Exception as e:
                         st.error(f"Erreur API : {e}")
     else:
@@ -198,7 +196,7 @@ if st.session_state.step == 1:
     if "step1" in st.session_state.analysis_data:
         st.divider()
         st.markdown(st.session_state.analysis_data["step1"])
-        st.markdown(f"👉 **[Demander un Audit Humain]({LIEN_ARCHITECTE})**")
+        st.markdown(f"👉 **[Demander un Audit Architecte (Humain)]({LIEN_ARCHITECTE})**")
         c1, c2 = st.columns(2)
         if c1.button("➡️ GO -> Plan d'Action"):
             st.session_state.step = 3
@@ -209,11 +207,19 @@ if st.session_state.step == 1:
 
 # PHASE 2
 elif st.session_state.step == 2:
-    st.subheader("2️⃣ Pivots")
+    st.subheader("2️⃣ Pivots Stratégiques")
     if "step2" not in st.session_state.analysis_data:
-        with st.spinner("Recherche d'alternatives..."):
-            res = model.generate_content(f"3 Pivots radicaux pour : {st.session_state.initial_idea}")
-            st.session_state.analysis_data["step2"] = res.text
+        with st.spinner("Génération des pivots..."):
+            try:
+                prompt_pivot = f"""
+                Idée : "{st.session_state.initial_idea}".
+                Propose 3 pivots radicaux (Business Models différents).
+                Format : Titre, Concept, Pourquoi c'est mieux.
+                """
+                res = model.generate_content(prompt_pivot)
+                st.session_state.analysis_data["step2"] = res.text
+            except Exception as e: st.error(f"Erreur : {e}")
+            
     st.markdown(st.session_state.analysis_data["step2"])
     ch = st.radio("Choix :", ["Initial", "Pivot 1", "Pivot 2", "Pivot 3"])
     if st.button("Valider"):
@@ -223,21 +229,32 @@ elif st.session_state.step == 2:
 
 # PHASE 3
 elif st.session_state.step == 3:
-    st.subheader("3️⃣ GPS Action")
+    st.subheader("3️⃣ GPS : Plan d'Exécution")
     final = st.session_state.initial_idea
     if st.session_state.selected_pivot: final += f" ({st.session_state.selected_pivot})"
-    st.info(f"Projet : {final}")
+    st.info(f"Projet validé : {final}")
     
     if "step3" not in st.session_state.analysis_data:
         if st.button("Générer Plan"):
-            with st.spinner("Calcul GPS..."):
-                res = model.generate_content(f"Plan d'action (Goal, Plan, 1st Step) pour : {final}")
-                st.session_state.analysis_data["step3"] = res.text
-                st.rerun()
+            with st.spinner("Calcul de l'itinéraire optimal..."):
+                try:
+                    prompt_gps = f"""
+                    Agis comme un Chef des Opérations (COO).
+                    Projet : "{final}".
+                    
+                    Plan GPS précis :
+                    1. **GOAL** : Objectif chiffré et daté à 90 jours.
+                    2. **PLAN** : 3 Phases de 30 jours.
+                    3. **STEP** : 3 actions à faire AUJOURD'HUI.
+                    """
+                    res = model.generate_content(prompt_gps)
+                    st.session_state.analysis_data["step3"] = res.text
+                    st.rerun()
+                except Exception as e: st.error(f"Erreur : {e}")
     
     if "step3" in st.session_state.analysis_data:
         st.markdown(st.session_state.analysis_data["step3"])
-        if st.button("Nouveau"):
+        if st.button("Nouveau projet"):
             st.session_state.step = 1
             st.session_state.analysis_data = {}
             st.rerun()
