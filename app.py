@@ -3,148 +3,131 @@ from supabase import create_client, Client
 import google.generativeai as genai
 
 # --- CONFIGURATION DE LA PAGE ---
-st.set_page_config(
-    page_title="IA Critique & GPS",
-    page_icon="🚀",
-    layout="wide"
-)
+st.set_page_config(page_title="IA Critique & GPS", page_icon="🚀", layout="wide")
 
-# --- 1. RÉCUPÉRATION DES SECRETS (Existants) ---
-# Le code va chercher vos clés actuelles dans .streamlit/secrets.toml
-# Il ne faut RIEN changer ici si cela marchait avant.
+# ==========================================
+# 🛑 ZONE DE CONFIGURATION (REMPLISSEZ ICI)
+# ==========================================
+
+# 1. Vos clés SUPABASE (Collez vos vraies clés entre les guillemets)
+SUPABASE_URL = "https://idvkrilkrfpzdmmmxgnj.supabase.co" 
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkdmtyaWxrcmZwemRtbW14Z25qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzNjY4NTIsImV4cCI6MjA4Mzk0Mjg1Mn0.pmjlyfNbe_4V4j26KeiFgUkNzI9tz9zPY3DwJho_RRU"
+
+# 2. Votre clé GOOGLE GEMINI (Collez votre clé ici)
+GOOGLE_API_KEY = "AIzaSyAWxtPV_SzbEHNgQJecfugMZZoXRn0mKUc"
+
+# 3. Votre lien de paiement LEMON SQUEEZY (https://...)
+LIEN_PAIEMENT = "https://ia-brainstormer.lemonsqueezy.com/checkout/buy/df3c85cc-c30d-4e33-b40a-0e1ee4ebab67"
+
+# ==========================================
+# FIN DE LA CONFIGURATION - NE TOUCHEZ PLUS RIEN DESSOUS
+# ==========================================
+
+# Connexion aux services
 try:
-    SUPABASE_URL = st.secrets["SUPABASE_URL"]
-    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-    # On cherche la clé Google. Si elle s'appelle différemment dans vos secrets
-    # (ex: GEMINI_API_KEY), modifiez juste le nom entre guillemets ci-dessous.
-    GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    genai.configure(api_key=GOOGLE_API_KEY)
+    model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
-    st.error(f"Erreur de secrets : {e}. Vérifiez votre fichier .streamlit/secrets.toml")
+    st.error(f"Erreur de configuration des clés : {e}")
     st.stop()
 
-# Connexion Supabase
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-# Connexion Google Gemini
-genai.configure(api_key=GOOGLE_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash') # Modèle rapide et efficace
-
-# --- 2. FONCTIONS UTILITAIRES ---
-
+# --- FONCTIONS ---
 def get_user_by_code(access_code):
-    """Récupère l'utilisateur via son code d'accès unique"""
+    """Récupère l'utilisateur via son code d'accès"""
     try:
         response = supabase.table("users").select("*").eq("access_code", access_code).execute()
-        if response.data and len(response.data) > 0:
+        if response.data:
             return response.data[0]
-        return None
-    except Exception as e:
-        st.error(f"Erreur DB (Recherche): {e}")
-        return None
+    except:
+        pass
+    return None
 
 def decrement_credits(user_id, current_credits):
-    """Enlève 1 crédit après usage"""
+    """Enlève 1 crédit"""
     try:
         new_credits = max(0, current_credits - 1)
         supabase.table("users").update({"credits": new_credits}).eq("id", user_id).execute()
         return new_credits
-    except Exception as e:
-        st.error(f"Erreur DB (Débit): {e}")
+    except:
         return current_credits
 
-# --- 3. GESTION DE LA CONNEXION (URL MAGIC LINK) ---
-
+# --- GESTION CONNEXION ---
 if "user" not in st.session_state:
     query_params = st.query_params
     if "access_code" in query_params:
-        code_url = query_params["access_code"]
-        user = get_user_by_code(code_url)
+        user = get_user_by_code(query_params["access_code"])
         if user:
             st.session_state["user"] = user
             st.rerun()
 
-# --- 4. INTERFACE UTILISATEUR ---
+# --- INTERFACE ---
 
-# CAS A : PAS CONNECTÉ
+# 1. PAS CONNECTÉ
 if "user" not in st.session_state:
     st.title("🔐 Accès Réservé")
     st.write("Veuillez utiliser le lien reçu par email.")
     
-    # Connexion de secours
-    code_input = st.text_input("Ou entrez votre code ici :")
+    code = st.text_input("Ou code manuel :")
     if st.button("Valider"):
-        user = get_user_by_code(code_input)
+        user = get_user_by_code(code)
         if user:
             st.session_state["user"] = user
             st.rerun()
         else:
             st.error("Code inconnu.")
     
-    st.markdown("---")
-    # LIEN TALLY (Déjà rempli pour vous)
+    st.divider()
     st.info("Pas encore de compte ? [3 crédits offerts ici](https://tally.so/r/3xQqjL)")
     st.stop()
 
-# CAS B : CONNECTÉ (L'APPLICATION)
+# 2. CONNECTÉ (L'APP)
 user = st.session_state["user"]
 credits = user["credits"]
 
-# --- BARRE LATÉRALE (SIDEBAR) ---
 with st.sidebar:
     st.header("Mon Compte")
     st.write(f"👤 {user['email']}")
     
     if credits > 0:
-        st.metric("Crédits", credits, delta="Disponible")
+        st.metric("Crédits", credits)
     else:
         st.metric("Crédits", 0, delta="Épuisé", delta_color="inverse")
-        st.warning("Plus de crédits !")
-        
-        # --- 🛑 ZONE À MODIFIER CI-DESSOUS ---
-        # Remplacez le lien entre parenthèses par votre lien Lemon Squeezy
-        st.markdown("[👉 Recharger (49€)](https://ia-brainstormer.lemonsqueezy.com/checkout/buy/df3c85cc-c30d-4e33-b40a-0e1ee4ebab67)", unsafe_allow_html=True)
-        # -------------------------------------
+        st.warning("Recharge nécessaire")
+        st.markdown(f"[👉 Recharger (49€)]({LIEN_PAIEMENT})")
 
-    st.divider()
-    if st.button("Se déconnecter"):
+    if st.button("Déconnexion"):
         del st.session_state["user"]
         st.rerun()
 
-# --- CŒUR DE L'APP (IA GOOGLE) ---
 st.title("🚀 Générateur IA : Critique & GPS")
 
 if credits > 0:
-    user_input = st.text_area("Votre idée ou projet :", height=150)
+    prompt = st.text_area("Votre idée :", height=100)
     
-    if st.button("Lancer l'analyse (1 crédit)"):
-        if not user_input:
-            st.warning("Écrivez quelque chose d'abord !")
+    if st.button("Analyser (1 crédit)"):
+        if not prompt:
+            st.warning("Écrivez une idée !")
         else:
-            with st.spinner("Analyse par Google Gemini en cours..."):
+            with st.spinner("Analyse en cours..."):
                 try:
-                    # 1. Avocat du Diable
-                    prompt_critique = f"Agis comme un critique constructif. Trouve 3 failles et 2 risques pour cette idée : '{user_input}'."
-                    res_critique = model.generate_content(prompt_critique)
+                    # Génération Google Gemini
+                    response = model.generate_content(
+                        f"Analyse l'idée : '{prompt}'. \n"
+                        f"1. Rôle : Avocat du Diable (3 critiques). \n"
+                        f"2. Rôle : GPS Stratégique (Objectif, Plan, 1ère Action). \n"
+                        f"Utilise du Markdown clair."
+                    )
                     
-                    # 2. GPS
-                    prompt_gps = f"Agis comme un stratège. Donne un Objectif, un Plan en 3 étapes et la 1ère action pour : '{user_input}'."
-                    res_gps = model.generate_content(prompt_gps)
+                    st.markdown(response.text)
                     
-                    # 3. Affichage
-                    st.subheader("😈 Analyse Critique")
-                    st.write(res_critique.text)
-                    st.divider()
-                    st.subheader("📍 Plan GPS")
-                    st.write(res_gps.text)
-                    
-                    # 4. Débit Crédit
-                    new_solde = decrement_credits(user["id"], credits)
-                    user["credits"] = new_solde
+                    # Débit
+                    new_credits = decrement_credits(user["id"], credits)
+                    user["credits"] = new_credits
                     st.session_state["user"] = user
-                    st.toast("Terminé ! Crédit débité.", icon="✅")
+                    st.success("Terminé !")
                     
                 except Exception as e:
-                    st.error(f"Erreur lors de la génération : {e}")
-
+                    st.error(f"Erreur IA : {e}")
 else:
-    st.error("Vous devez recharger votre compte pour utiliser l'IA.")
+    st.error("Solde insuffisant. Rechargez via le menu.")
