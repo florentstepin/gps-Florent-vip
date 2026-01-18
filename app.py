@@ -19,146 +19,117 @@ GOOGLE_API_KEY = "AIzaSyDsYZxJmLnLtfeA60IDDLnRv9Sm8cMdYdw"
 # 3. Votre lien de paiement LEMON SQUEEZY (https://...)
 LIEN_PAIEMENT = "https://ia-brainstormer.lemonsqueezy.com/checkout/buy/df3c85cc-c30d-4e33-b40a-0e1ee4ebab67"
 
-# ==========================================
-# FIN DE LA CONFIGURATION - NE TOUCHEZ PLUS RIEN DESSOUS
-# ==========================================
+# ==============================================================================
+# CONFIGURATION IA (Version 2.5)
+# ==============================================================================
+# On force l'appel au modèle 2.5 comme vous l'aviez avant.
+MODEL_NAME = 'gemini-2.5-flash' 
 
-# Connexion aux services
+# --- CONNEXION AUX SERVICES ---
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     genai.configure(api_key=GOOGLE_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel(MODEL_NAME)
 except Exception as e:
-    st.error(f"Erreur de configuration des clés : {e}")
+    st.error(f"❌ Erreur de configuration : {e}")
     st.stop()
 
-# --- FONCTIONS ---
+# --- FONCTIONS TECHNIQUES ---
+
 def get_user_by_code(access_code):
-    """Récupère l'utilisateur via son code d'accès"""
     try:
+        # Recherche flexible (code ou access_code)
         response = supabase.table("users").select("*").eq("access_code", access_code).execute()
-        if response.data:
-            return response.data[0]
-    except:
-        pass
+        if response.data: return response.data[0]
+    except: pass
     return None
 
 def decrement_credits(user_id, current_credits):
-    """Enlève 1 crédit"""
     try:
         new_credits = max(0, current_credits - 1)
         supabase.table("users").update({"credits": new_credits}).eq("id", user_id).execute()
         return new_credits
-    except:
-        return current_credits
+    except: return current_credits
 
-# --- GESTION DU LOGIN (Lien Magique) ---
-
+# --- GESTION LOGIN ---
 if "user" not in st.session_state:
-    query_params = st.query_params
+    qp = st.query_params
+    code_url = qp.get("code") or qp.get("access_code")
     
-    # CORRECTION ICI : On cherche 'code' (comme dans l'email) OU 'access_code'
-    code_url = None
-    if "code" in query_params:
-        code_url = query_params["code"]
-    elif "access_code" in query_params:
-        code_url = query_params["access_code"]
-        
     if code_url:
         user = get_user_by_code(code_url)
         if user:
             st.session_state["user"] = user
             st.rerun()
 
-# --- INTERFACE VISUELLE ---
+# --- INTERFACE ---
 
-# PARTIE 1 : PAS CONNECTÉ
+# 1. NON CONNECTÉ
 if "user" not in st.session_state:
     st.title("🔐 Accès Réservé")
-    st.markdown("Pour accéder à l'outil, utilisez le lien reçu par email après votre achat.")
+    st.markdown("Veuillez utiliser le lien reçu par email.")
     
-    # Option de secours manuelle
-    code_input = st.text_input("Ou collez votre code d'accès ici :")
-    if st.button("Valider le code"):
+    code_input = st.text_input("Ou code manuel :")
+    if st.button("Valider"):
         user = get_user_by_code(code_input)
         if user:
             st.session_state["user"] = user
             st.rerun()
         else:
-            st.error("Ce code n'est pas reconnu.")
-    
-    st.markdown("---")
-    # CORRECTION LIEN TALLY ICI (Vérifiez bien les guillemets)
-    st.info("Pas encore inscrit ? [Cliquez ici pour obtenir 3 crédits gratuits](https://tally.so/r/3xQqjL)")
-    st.stop()
-
-# --- INTERFACE ---
-
-# 1. PAS CONNECTÉ
-if "user" not in st.session_state:
-    st.title("🔐 Accès Réservé")
-    st.write("Veuillez utiliser le lien reçu par email.")
-    
-    code = st.text_input("Ou code manuel :")
-    if st.button("Valider"):
-        user = get_user_by_code(code)
-        if user:
-            st.session_state["user"] = user
-            st.rerun()
-        else:
             st.error("Code inconnu.")
-    
+            
     st.divider()
-    st.info("Pas encore de compte ? [3 crédits offerts ici](https://tally.so/r/3xQqjL)")
+    st.info("Pas encore inscrit ? [3 crédits offerts ici](https://tally.so/r/3xQqjL)")
     st.stop()
 
-# 2. CONNECTÉ (L'APP)
+# 2. CONNECTÉ
 user = st.session_state["user"]
 credits = user["credits"]
 
 with st.sidebar:
     st.header("Mon Compte")
     st.write(f"👤 {user['email']}")
-    
     if credits > 0:
         st.metric("Crédits", credits)
     else:
         st.metric("Crédits", 0, delta="Épuisé", delta_color="inverse")
-        st.warning("Recharge nécessaire")
-        st.markdown(f"[👉 Recharger (49€)]({LIEN_PAIEMENT})")
-
+        st.markdown(f"👉 **[Recharger (49€)]({LIEN_PAIEMENT})**")
+    
+    st.divider()
     if st.button("Déconnexion"):
         del st.session_state["user"]
         st.rerun()
 
-st.title("🚀 Générateur IA : Critique & GPS")
+# --- ZONE IA ---
+st.title(f"🚀 Générateur IA")
 
 if credits > 0:
-    prompt = st.text_area("Votre idée :", height=100)
+    user_input = st.text_area("Votre idée :", height=100)
     
     if st.button("Analyser (1 crédit)"):
-        if not prompt:
+        if not user_input:
             st.warning("Écrivez une idée !")
         else:
-            with st.spinner("Analyse en cours..."):
+            with st.spinner(f"Analyse en cours..."):
                 try:
-                    # Génération Google Gemini
-                    response = model.generate_content(
-                        f"Analyse l'idée : '{prompt}'. \n"
-                        f"1. Rôle : Avocat du Diable (3 critiques). \n"
-                        f"2. Rôle : GPS Stratégique (Objectif, Plan, 1ère Action). \n"
-                        f"Utilise du Markdown clair."
-                    )
+                    prompt = f"""
+                    Analyse l'idée : '{user_input}'.
+                    1. AVOCAT DU DIABLE : 3 failles critiques, 2 risques.
+                    2. GPS STRATÉGIQUE : Objectif, Plan (3 étapes), 1ère Action.
+                    Utilise du Markdown.
+                    """
                     
+                    response = model.generate_content(prompt)
                     st.markdown(response.text)
                     
                     # Débit
-                    new_credits = decrement_credits(user["id"], credits)
-                    user["credits"] = new_credits
+                    new_c = decrement_credits(user["id"], credits)
+                    user["credits"] = new_c
                     st.session_state["user"] = user
                     st.success("Terminé !")
                     
                 except Exception as e:
-                    st.error(f"Erreur IA : {e}")
+                    st.error(f"Erreur API : {e}")
 else:
-    st.error("Solde insuffisant. Rechargez via le menu.")
+    st.error("Solde épuisé.")
+    st.markdown(f"**[Recharger ici]({LIEN_PAIEMENT})**")
