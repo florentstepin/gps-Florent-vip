@@ -1,186 +1,264 @@
 import streamlit as st
 from supabase import create_client, Client
 import google.generativeai as genai
+import json
+import time
 
-# --- CONFIGURATION DE LA PAGE ---
-st.set_page_config(page_title="Générateur Stratégique IA", page_icon="🚀", layout="wide")
+# --- CONFIGURATION PAGE ---
+st.set_page_config(page_title="Stratège IA : De l'Idée à l'Action", page_icon="🎯", layout="wide")
 
-# ==========================================
-# 🛑 ZONE DE CONFIGURATION (REMPLISSEZ ICI)
-# ==========================================
-
-# 1. Vos clés SUPABASE (Collez vos vraies clés entre les guillemets)
+# ==============================================================================
+# 🛑 ZONE DE CONFIGURATION (VOS CLÉS)
+# ==============================================================================
+# 1. Vos clés SUPABASE 
 SUPABASE_URL = "https://idvkrilkrfpzdmmmxgnj.supabase.co" 
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkdmtyaWxrcmZwemRtbW14Z25qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzNjY4NTIsImV4cCI6MjA4Mzk0Mjg1Mn0.pmjlyfNbe_4V4j26KeiFgUkNzI9tz9zPY3DwJho_RRU"
-
-# 2. Votre clé GOOGLE GEMINI (Collez votre clé ici)
+# 2. Votre clé GOOGLE GEMINI 
 GOOGLE_API_KEY = "AIzaSyDsYZxJmLnLtfeA60IDDLnRv9Sm8cMdYdw"
-
-# 3. Votre lien de paiement LEMON SQUEEZY (https://...)
+# 3. Votre lien de paiement 
 LIEN_PAIEMENT = "https://ia-brainstormer.lemonsqueezy.com/checkout/buy/df3c85cc-c30d-4e33-b40a-0e1ee4ebab67"
-
-# 4. Choix du Modèle
-# Si 'gemini-2.5-flash' fonctionnait, laissez tel quel.
-# En cas d'erreur 404, remplacez par 'gemini-3.0' ou 'gemini-pro'.
-MODEL_NAME = 'gemini-2.5-flash' 
+# 4. Modèle IA
+MODEL_NAME = 'gemini-2.5-flash'
+# 5. Lien "Besoin d'un regard humain" (Architecte) - Votre Google Form
+LIEN_ARCHITECTE = "https://docs.google.com/forms/d/e/1FAIpQLScKU17kIr4t_Wiwi6uTMd0a2CCUMtqOU0w_yEHb8uAXVfgCZw/viewform?usp=dialog"
 
 # ==============================================================================
-# FIN DE LA CONFIGURATION. LE RESTE EST AUTOMATIQUE.
-# ==============================================================================
 
-# --- CONNEXION AUX SERVICES ---
+# --- INITIALISATION & CONNEXIONS ---
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     genai.configure(api_key=GOOGLE_API_KEY)
     model = genai.GenerativeModel(MODEL_NAME)
 except Exception as e:
-    st.error(f"❌ Erreur critique de connexion : {e}")
+    st.error(f"❌ Erreur config : {e}")
     st.stop()
+
+# --- GESTION ÉTAT (SESSION STATE) ---
+# On initialise les variables pour mémoriser l'avancement dans le tunnel
+if "step" not in st.session_state: st.session_state.step = 1
+if "analysis_data" not in st.session_state: st.session_state.analysis_data = {}
+if "selected_pivot" not in st.session_state: st.session_state.selected_pivot = None
+if "initial_idea" not in st.session_state: st.session_state.initial_idea = ""
 
 # --- FONCTIONS UTILITAIRES ---
 
-def get_user_by_code(access_code):
-    """Récupère l'utilisateur en base de données"""
+def get_user(code):
     try:
-        # On nettoie le code d'éventuels espaces
-        access_code = access_code.strip()
-        response = supabase.table("users").select("*").eq("access_code", access_code).execute()
-        if response.data and len(response.data) > 0:
-            return response.data[0]
-    except Exception as e:
-        # En production, on peut masquer l'erreur exacte
-        pass
-    return None
+        res = supabase.table("users").select("*").eq("access_code", code).execute()
+        return res.data[0] if res.data else None
+    except: return None
 
-def decrement_credits(user_id, current_credits):
-    """Débite 1 crédit à l'utilisateur"""
+def debit_credit(user_id, current):
     try:
-        new_credits = max(0, current_credits - 1)
-        supabase.table("users").update({"credits": new_credits}).eq("id", user_id).execute()
-        return new_credits
-    except:
-        return current_credits
+        new = max(0, current - 1)
+        supabase.table("users").update({"credits": new}).eq("id", user_id).execute()
+        return new
+    except: return current
 
-# --- GESTION DU LOGIN (ROBUSTE) ---
+def save_json():
+    """Génère le fichier JSON de sauvegarde"""
+    data = {
+        "step": st.session_state.step,
+        "idea": st.session_state.initial_idea,
+        "analysis": st.session_state.analysis_data,
+        "pivot": st.session_state.selected_pivot
+    }
+    return json.dumps(data, indent=4)
 
+def load_json(uploaded_file):
+    """Charge un état depuis un JSON"""
+    if uploaded_file is not None:
+        try:
+            data = json.load(uploaded_file)
+            st.session_state.step = data.get("step", 1)
+            st.session_state.initial_idea = data.get("idea", "")
+            st.session_state.analysis_data = data.get("analysis", {})
+            st.session_state.selected_pivot = data.get("pivot", None)
+            st.success("Projet chargé avec succès !")
+            time.sleep(1)
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erreur de lecture JSON : {e}")
+
+# --- LOGIN ---
 if "user" not in st.session_state:
-    # On regarde dans l'URL
     qp = st.query_params
-    # On accepte 'code' (Email) OU 'access_code' (Anciens liens)
     code_url = qp.get("code") or qp.get("access_code")
-    
     if code_url:
-        user = get_user_by_code(code_url)
-        if user:
-            st.session_state["user"] = user
+        u = get_user(code_url)
+        if u:
+            st.session_state["user"] = u
             st.rerun()
 
 # --- INTERFACE ---
-
-# CAS 1 : UTILISATEUR NON CONNECTÉ
 if "user" not in st.session_state:
-    st.title("🔐 Accès Espace VIP")
-    st.markdown("### Veuillez vous identifier")
-    st.write("Utilisez le lien magique reçu par email pour accéder à votre espace.")
-    
-    # Connexion de secours
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        code_input = st.text_input("Ou entrez votre code personnel ici :", placeholder="Ex: a1b2c3d4...")
-    with col2:
-        st.write("") # Espace
-        st.write("") # Espace
-        if st.button("Valider l'accès"):
-            user = get_user_by_code(code_input)
-            if user:
-                st.session_state["user"] = user
-                st.rerun()
-            else:
-                st.error("Code non reconnu.")
-            
-    st.divider()
-    st.info("Pas encore de compte ? [Obtenez 3 crédits gratuits ici](https://tally.so/r/3xQqjL)")
+    st.title("🔐 Espace Stratégique")
+    c = st.text_input("Code d'accès :")
+    if st.button("Entrer"):
+        u = get_user(c)
+        if u:
+            st.session_state["user"] = u
+            st.rerun()
+        else: st.error("Code invalide")
     st.stop()
 
-# CAS 2 : UTILISATEUR CONNECTÉ (L'APPLICATION)
 user = st.session_state["user"]
 credits = user["credits"]
 
-# --- BARRE LATÉRALE (Compte & Paiement) ---
+# --- SIDEBAR (Compte & Outils) ---
 with st.sidebar:
-    st.header("👤 Mon Espace")
-    st.write(f"Email : **{user['email']}**")
-    
-    st.divider()
+    st.header("🎛️ Tableau de bord")
+    st.write(f"👤 {user['email']}")
     
     if credits > 0:
-        st.metric(label="Crédits disponibles", value=credits)
-        st.success("✅ Compte actif")
+        st.metric("Crédits", credits, delta="Actif")
     else:
-        st.metric(label="Crédits", value=0)
-        st.error("⛔ Solde épuisé")
-        st.markdown("### 🚀 Passez au niveau supérieur")
-        st.markdown("Pour continuer à générer des stratégies, rechargez votre compte.")
-        # LE LIEN HIGH TICKET / RECHARGE
-        st.markdown(f"👉 **[Recharger maintenant]({LIEN_PAIEMENT})**", unsafe_allow_html=True)
+        st.error("Crédits épuisés")
+        st.markdown(f"[👉 **Recharger**]({LIEN_RECHARGE})")
     
     st.divider()
-    if st.button("Se déconnecter"):
+    st.markdown("### 💾 Sauvegarde / Reprise")
+    
+    # Bouton Sauvegarder
+    json_str = save_json()
+    st.download_button("📥 Télécharger mon projet (.json)", json_str, "mon_projet_ia.json", "application/json")
+    
+    # Bouton Charger
+    uploaded = st.file_uploader("📤 Reprendre un projet", type="json")
+    if uploaded: load_json(uploaded)
+
+    st.divider()
+    if st.button("Déconnexion"):
         del st.session_state["user"]
         st.rerun()
 
-# --- ZONE PRINCIPALE : L'INTELLIGENCE ARTIFICIELLE ---
-st.title("🧠 Générateur de Stratégie & Critique")
-st.markdown("Transformez une idée brute en plan d'action bétonné.")
+# --- MAIN FLOW ---
 
-if credits > 0:
-    user_input = st.text_area("Décrivez votre idée, projet ou offre :", height=150, placeholder="Ex: Je veux lancer une formation sur la permaculture pour les citadins...")
+st.title("🚀 Accélérateur de Projets IA")
+
+# Barre de progression visuelle
+steps = ["1. Analyse & Verdict", "2. Pivot (Optionnel)", "3. Plan d'Action (GPS)"]
+curr_step_idx = st.session_state.step - 1
+st.progress(st.session_state.step / 3)
+st.caption(f"Étape actuelle : {steps[min(curr_step_idx, 2)]}")
+
+# --- ÉTAPE 1 : L'AVOCAT DU DIABLE + VERDICT ---
+if st.session_state.step == 1:
+    st.subheader("1️⃣ Le Crash Test (Avocat du Diable)")
     
-    if st.button("Lancer l'analyse complète (1 crédit)"):
-        if not user_input:
-            st.warning("Veuillez entrer une idée pour commencer.")
-        else:
-            with st.spinner("L'IA analyse votre projet sous tous les angles..."):
-                try:
-                    # 1. Construction du Prompt "Tout-en-un" pour garantir la cohérence
-                    prompt_complet = f"""
-                    Tu es un consultant business d'élite. Analyse l'idée suivante : "{user_input}".
+    if credits > 0:
+        user_input = st.text_area("Votre idée brute :", value=st.session_state.initial_idea, height=150)
+        
+        if st.button("Lancer l'analyse (1 crédit)"):
+            if not user_input:
+                st.warning("Décrivez votre idée.")
+            else:
+                st.session_state.initial_idea = user_input
+                with st.spinner("Analyse critique en cours..."):
+                    # Prompt Verdict
+                    prompt = f"""
+                    Agis comme un investisseur exigeant. Analyse : "{user_input}".
                     
-                    ---
-                    PARTIE 1 : L'AVOCAT DU DIABLE 😈
-                    Sois impitoyable mais juste. Identifie :
-                    1. La faille mortelle (pourquoi ça peut échouer).
-                    2. Un biais cognitif du créateur.
-                    3. Un risque caché marché/concurrentiel.
+                    1. CRITIQUE : 3 failles mortelles et 1 biais cognitif.
+                    2. VERDICT : Choisis UN seul parmi : [GO], [NOGO], ou [PIVOT].
+                    Justifie le verdict en une phrase choc.
                     
-                    ---
-                    PARTIE 2 : LE SYSTÈME GPS (Goal - Plan - Step) 📍
-                    Transforme les critiques en actions :
-                    1. GOAL : Reformule l'objectif pour qu'il soit SMART et ambitieux.
-                    2. PLAN : Donne 3 grandes étapes chronologiques.
-                    3. STEP : La toute première action à faire dans l'heure qui suit (Action immédiate).
-                    
-                    Utilise une mise en forme Markdown propre (Gras, Titres, Listes).
+                    Formate en Markdown.
                     """
+                    res = model.generate_content(prompt)
+                    st.session_state.analysis_data["step1"] = res.text
                     
-                    # 2. Appel à l'IA
-                    response = model.generate_content(prompt_complet)
-                    
-                    # 3. Affichage du résultat
-                    st.markdown(response.text)
-                    
-                    # 4. Débit du crédit (UNIQUEMENT si ça a marché)
-                    new_solde = decrement_credits(user["id"], credits)
-                    user["credits"] = new_solde
+                    # Débit crédit
+                    new_c = debit_credit(user["id"], credits)
+                    user["credits"] = new_c
                     st.session_state["user"] = user
-                    
-                    st.toast("Analyse réussie ! Crédit débité.", icon="🎉")
-                    
-                except Exception as e:
-                    st.error(f"Une erreur est survenue lors de l'analyse : {e}")
-                    st.info("Si l'erreur persiste, vérifiez le nom du modèle ou votre clé API.")
+                    st.rerun()
+    else:
+        st.warning("Rechargez vos crédits pour commencer.")
 
-else:
-    # Ecran quand 0 crédits
-    st.warning("Vous avez utilisé toutes vos explorations gratuites.")
-    st.markdown(f"### 👉 [Cliquez ici pour débloquer l'accès illimité / Recharger]({LIEN_PAIEMENT})")
+    # Affichage Résultat Étape 1
+    if "step1" in st.session_state.analysis_data:
+        st.divider()
+        st.markdown(st.session_state.analysis_data["step1"])
+        
+        st.info("💡 Besoin d'un regard humain expert pour trancher ?")
+        st.markdown(f"👉 **[Demander un Audit Architecte (Optionnel)]({LIEN_ARCHITECTE})**")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("➡️ Continuer vers le Plan d'Action (GO)"):
+                st.session_state.step = 3
+                st.rerun()
+        with col2:
+            if st.button("🔄 Explorer des Alternatives (PIVOT)"):
+                st.session_state.step = 2
+                st.rerun()
+
+# --- ÉTAPE 2 : LE PIVOT (Génération d'alternatives) ---
+elif st.session_state.step == 2:
+    st.subheader("2️⃣ Le Laboratoire à Pivots")
+    st.write("Votre idée initiale a du potentiel, mais nécessite un ajustement. Voici des pistes.")
+    
+    if "step2" not in st.session_state.analysis_data:
+        with st.spinner("Génération des pivots..."):
+            prompt_pivot = f"""
+            L'idée de base est : "{st.session_state.initial_idea}".
+            Le verdict précédent suggérait un pivot.
+            Propose 3 variations radicales (Pivots) pour rendre ce projet viable et rentable.
+            Pour chaque pivot : Titre, Concept en 1 phrase, Pourquoi ça marche.
+            """
+            res = model.generate_content(prompt_pivot)
+            st.session_state.analysis_data["step2"] = res.text
+    
+    st.markdown(st.session_state.analysis_data["step2"])
+    
+    st.divider()
+    st.write("Quelle version choisissez-vous pour le plan d'action ?")
+    
+    options = ["Je garde mon idée initiale (têtue)", "Pivot 1", "Pivot 2", "Pivot 3"]
+    choice = st.radio("Votre choix :", options)
+    
+    if st.button("Valider et passer au Plan d'Action"):
+        st.session_state.selected_pivot = choice
+        st.session_state.step = 3
+        st.rerun()
+
+# --- ÉTAPE 3 : LE SYSTÈME GPS (Plan d'Action) ---
+elif st.session_state.step == 3:
+    st.subheader("3️⃣ Le Système GPS (Exécution)")
+    
+    # On détermine quelle idée on traite (Initiale ou Pivot)
+    final_concept = st.session_state.initial_idea
+    if st.session_state.selected_pivot and "initiale" not in st.session_state.selected_pivot:
+        final_concept = f"Version pivotée ({st.session_state.selected_pivot}) basée sur : {st.session_state.initial_idea}"
+    
+    st.info(f"📍 Création de la feuille de route pour : **{final_concept}**")
+    
+    if "step3" not in st.session_state.analysis_data:
+        if st.button("Générer la feuille de route"):
+            with st.spinner("Calcul de l'itinéraire vers le succès..."):
+                prompt_gps = f"""
+                Agis comme un Stratège Opérationnel.
+                Projet validé : "{final_concept}".
+                
+                Donne-moi le plan GPS :
+                1. GOAL (Objectif SMART à 90 jours).
+                2. PLAN (3 grandes phases de 30 jours).
+                3. STEP (La liste des 3 actions immédiates à faire aujourd'hui).
+                
+                Sois très concret, pas de blabla.
+                """
+                res = model.generate_content(prompt_gps)
+                st.session_state.analysis_data["step3"] = res.text
+                st.rerun()
+    
+    if "step3" in st.session_state.analysis_data:
+        st.markdown(st.session_state.analysis_data["step3"])
+        
+        st.divider()
+        st.success("🏁 Parcours terminé. N'oubliez pas de sauvegarder votre projet (Menu JSON à gauche).")
+        if st.button("Recommencer une nouvelle analyse"):
+            st.session_state.step = 1
+            st.session_state.analysis_data = {}
+            st.session_state.initial_idea = ""
+            st.rerun()
