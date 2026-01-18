@@ -8,20 +8,20 @@ import time
 st.set_page_config(page_title="Stratège IA 2026 (Pro)", page_icon="🧠", layout="wide")
 
 # ==============================================================================
-# 🛑 ZONE DE CONFIGURATION
+# 🔐 CONFIGURATION SÉCURISÉE (VIA STREAMLIT SECRETS)
 # ==============================================================================
-# 1. Vos clés SUPABASE 
-SUPABASE_URL = "https://idvkrilkrfpzdmmmxgnj.supabase.co" 
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkdmtyaWxrcmZwemRtbW14Z25qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzNjY4NTIsImV4cCI6MjA4Mzk0Mjg1Mn0.pmjlyfNbe_4V4j26KeiFgUkNzI9tz9zPY3DwJho_RRU"
-# 2. Votre clé GOOGLE GEMINI 
-GOOGLE_API_KEY = "AIzaSyCHXZecD22-YyrAhiKUkgli4aBzKsWgAeg"
-# 3. Votre lien de paiement 
-LIEN_PAIEMENT = "https://ia-brainstormer.lemonsqueezy.com/checkout/buy/df3c85cc-c30d-4e33-b40a-0e1ee4ebab67"
-# 4. Modèle 2026 "Thinking"
-# On utilise le PRO pour la profondeur de raisonnement.
-MODEL_NAME = 'gemini-2.5-pro'
-# 5. Lien "Besoin d'un regard humain" (Architecte) - Votre Google Form
-LIEN_ARCHITECTE = "https://docs.google.com/forms/d/e/1FAIpQLScKU17kIr4t_Wiwi6uTMd0a2CCUMtqOU0w_yEHb8uAXVfgCZw/viewform?usp=dialog"
+try:
+    # Le code va chercher chercher les clés dans le coffre-fort de Streamlit
+    SUPABASE_URL = st.secrets["https://idvkrilkrfpzdmmmxgnj.supabase.co"]
+    SUPABASE_KEY = st.secrets["sb_publishable_YAkxYv5VvIFQsZJ_hW21xQ_egaT2F8D"]
+    LIEN_RECHARGE = st.secrets["https://ia-brainstormer.lemonsqueezy.com/checkout/buy/df3c85cc-c30d-4e33-b40a-0e1ee4ebab67"]
+    
+    # Liens publics (pas besoin de les cacher)
+    LIEN_ARCHITECTE = "https://docs.google.com/forms/d/1B93XGdlUzsSDKMQmGPDNcSK3hT91z_1Tvy3808UWS5A/viewform"
+    MODEL_NAME = 'gemini-2.5-pro'
+except Exception as e:
+    st.error("❌ Erreur de secrets : Il manque des informations dans les Settings de Streamlit Cloud.")
+    st.stop()
 
 # ==============================================================================
 
