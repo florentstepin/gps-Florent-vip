@@ -5,7 +5,7 @@ import json
 import time
 
 # --- CONFIGURATION PAGE ---
-st.set_page_config(page_title="Stratège IA V5", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Stratège IA V6", page_icon="⚡", layout="wide")
 
 # ==============================================================================
 # 🔐 RÉCUPÉRATION SÉCURISÉE DES CLÉS
@@ -35,7 +35,7 @@ if "step" not in st.session_state: st.session_state.step = 1
 if "analysis_data" not in st.session_state: st.session_state.analysis_data = {}
 if "selected_pivot" not in st.session_state: st.session_state.selected_pivot = None
 if "initial_idea" not in st.session_state: st.session_state.initial_idea = ""
-# Force l'affichage du menu si des données existent
+# Force l'affichage du menu si des données existent (Persistance)
 if "step3" in st.session_state.analysis_data: st.session_state.step = 3
 elif "step2" in st.session_state.analysis_data: st.session_state.step = 2
 
@@ -49,26 +49,18 @@ def get_user(code):
     except: pass
     return None
 
-def debit_credit_force(user_obj, current):
-    """Débite et force l'interface à se mettre à jour"""
+def debit_credit_atomic(user_obj, current):
+    """Débite et force la session locale sans attendre le serveur"""
     try:
-        # 1. Récupération ID (UUID ou ID)
+        # 1. Update DB
         user_id = user_obj.get("uuid") or user_obj.get("id")
         col_name = "uuid" if user_obj.get("uuid") else "id"
         
-        if not user_id:
-            st.error("⚠️ Erreur Technique : ID Utilisateur introuvable. Le débit n'a pas pu se faire.")
-            return current
-
-        # 2. Calcul
         new_balance = max(0, current - 1)
-        
-        # 3. Update Supabase
         supabase.table("users").update({"credits": new_balance}).eq(col_name, user_id).execute()
         
-        # 4. FORÇAGE DE LA SESSION LOCALE (C'est ici que ça bloquait)
+        # 2. UPDATE LOCAL IMMÉDIAT (C'est ça qui corrige l'affichage)
         st.session_state["user"]["credits"] = new_balance
-        
         return new_balance
     except Exception as e:
         st.error(f"Erreur débit : {e}")
@@ -91,16 +83,13 @@ def load_json(uploaded_file):
             st.session_state.analysis_data = data.get("analysis", {})
             st.session_state.selected_pivot = data.get("pivot", None)
             
-            # Reconstruction intelligente de l'étape
-            if "step3" in st.session_state.analysis_data:
-                st.session_state.step = 3
-            elif "step2" in st.session_state.analysis_data:
-                st.session_state.step = 2
-            else:
-                st.session_state.step = 1
+            # Reconstruction de l'étape
+            if "step3" in st.session_state.analysis_data: st.session_state.step = 3
+            elif "step2" in st.session_state.analysis_data: st.session_state.step = 2
+            else: st.session_state.step = 1
                 
-            st.success("📂 Dossier chargé ! Le menu à gauche s'est mis à jour.")
-            time.sleep(1)
+            st.success("📂 Dossier chargé !")
+            time.sleep(0.5)
             st.rerun()
         except: st.error("Fichier invalide")
 
@@ -127,15 +116,9 @@ if "user" not in st.session_state:
 user = st.session_state["user"]
 credits = user.get("credits", 0)
 
-# ================= SIDEBAR (MENU GAUCHE) =================
+# ================= SIDEBAR =================
 with st.sidebar:
     st.header("Mon Compte")
-    
-    # Debug ID (Pour vérifier pourquoi ça bloque)
-    user_id_debug = user.get("uuid") or user.get("id")
-    if not user_id_debug:
-        st.warning("⚠️ ID introuvable (Crédits bloqués)")
-    
     if credits > 0:
         st.metric("Crédits Dispo", credits)
     else:
@@ -144,10 +127,10 @@ with st.sidebar:
 
     st.divider()
     
-    # --- NAVIGATION FORCÉE ---
-    st.markdown("### 📂 Navigation Dossier")
+    # --- NAVIGATION MANUELLE ---
+    st.markdown("### 📂 Navigation")
     
-    # Logique : Si j'ai des données Step 2, j'affiche le bouton Step 2
+    # On détecte ce qu'on a en mémoire pour construire le menu
     has_step1 = "step1" in st.session_state.analysis_data
     has_step2 = "step2" in st.session_state.analysis_data
     has_step3 = "step3" in st.session_state.analysis_data
@@ -156,16 +139,16 @@ with st.sidebar:
     if has_step2 or st.session_state.step >= 2: options_nav.append("2. Pivots")
     if has_step3 or st.session_state.step >= 3: options_nav.append("3. GPS")
     
-    # Sélecteur
-    try:
-        choix_nav = st.radio("Aller à :", options_nav, index=len(options_nav)-1)
-        affichage_actuel = int(choix_nav.split(".")[0])
-    except:
-        affichage_actuel = 1
+    # Le Radio Bouton intelligent
+    # Il se positionne automatiquement sur l'étape en cours
+    idx_defaut = 0
+    if st.session_state.step == 2 and len(options_nav) >= 2: idx_defaut = 1
+    if st.session_state.step == 3 and len(options_nav) >= 3: idx_defaut = 2
+    
+    choix_nav = st.radio("Aller à :", options_nav, index=idx_defaut)
+    affichage_actuel = int(choix_nav.split(".")[0])
 
     st.divider()
-    
-    # --- HIGH TICKET ---
     st.info("💎 **Expertise Humaine**")
     st.link_button("Réserver un Audit", LIEN_ARCHITECTE, type="primary")
     
@@ -182,7 +165,7 @@ with st.sidebar:
 st.title(f"🧠 Stratège IA")
 st.progress(affichage_actuel / 3)
 
-# PHASE 1
+# PHASE 1 : ANALYSE
 if affichage_actuel == 1:
     st.subheader("1️⃣ L'Avocat du Diable")
     
@@ -191,20 +174,23 @@ if affichage_actuel == 1:
         st.markdown(st.session_state.analysis_data["step1"])
         
         st.divider()
-        with st.expander("🔄 Relancer une nouvelle analyse (1 crédit)"):
-            new_txt = st.text_area("Nouvelle version de l'idée :", value=st.session_state.initial_idea)
+        with st.expander("🔄 Modifier et Relancer (Coûte 1 crédit)"):
+            new_txt = st.text_area("Nouvelle version :", value=st.session_state.initial_idea)
             if st.button("Relancer l'analyse"):
                 if credits > 0:
                     st.session_state.initial_idea = new_txt
+                    # On nettoie la suite pour éviter les incohérences
+                    st.session_state.analysis_data.pop("step2", None)
+                    st.session_state.analysis_data.pop("step3", None)
+                    
                     with st.spinner("Analyse V2..."):
                         res = model.generate_content(f"Analyse critique (Thinking mode) : {new_txt}")
                         st.session_state.analysis_data["step1"] = res.text
-                        debit_credit_force(user, credits)
+                        debit_credit_atomic(user, credits)
                         st.rerun()
                 else: st.error("Crédit insuffisant")
-
     else:
-        # Formulaire vierge
+        # Premier démarrage
         if credits > 0:
             txt = st.text_area("Votre idée :", value=st.session_state.initial_idea, height=150)
             if st.button("Lancer l'analyse (1 crédit)"):
@@ -216,14 +202,15 @@ if affichage_actuel == 1:
                         res = model.generate_content(prompt)
                         st.session_state.analysis_data["step1"] = res.text
                         st.session_state.step = 2 
-                        debit_credit_force(user, credits)
+                        debit_credit_atomic(user, credits)
                         st.rerun()
         else: st.error("Rechargez vos crédits.")
 
-# PHASE 2
+# PHASE 2 : PIVOTS
 elif affichage_actuel == 2:
     st.subheader("2️⃣ Pivots Stratégiques")
     
+    # Bouton de génération (si pas encore fait)
     if "step2" not in st.session_state.analysis_data:
         if st.button("Générer les Pivots"):
             with st.spinner("Recherche d'alternatives..."):
@@ -232,44 +219,64 @@ elif affichage_actuel == 2:
                 st.session_state.step = 2
                 st.rerun()
     
+    # Affichage et Choix
     if "step2" in st.session_state.analysis_data:
         st.markdown(st.session_state.analysis_data["step2"])
         
         st.divider()
+        st.markdown("### 🎯 Faire un choix pour le GPS")
+        
+        # Récupération du choix précédent ou défaut
         val_defaut = 0
         opts = ["Idée Initiale", "Pivot 1", "Pivot 2", "Pivot 3"]
-        if st.session_state.selected_pivot in opts: val_defaut = opts.index(st.session_state.selected_pivot)
+        current_pivot = st.session_state.selected_pivot
+        if current_pivot in opts: val_defaut = opts.index(current_pivot)
             
-        ch = st.radio("Choix du modèle :", opts, index=val_defaut)
-        if st.button("Valider et aller au GPS"):
+        # IMPORTANT : On utilise une clé unique pour le widget radio
+        ch = st.radio("Sur quelle stratégie part-on ?", opts, index=val_defaut, key="radio_pivot")
+        
+        if st.button("Valider ce choix et (Re)Calculer le GPS"):
+            # 1. On sauvegarde le choix
             st.session_state.selected_pivot = ch
+            
+            # 2. NETTOYAGE CRITIQUE : Si on change de pivot, on DOIT effacer l'ancien GPS
+            # C'est ici que ça bloquait avant (il gardait l'ancien step3)
+            if "step3" in st.session_state.analysis_data:
+                del st.session_state.analysis_data["step3"]
+            
+            # 3. On force le passage à l'étape 3
             st.session_state.step = 3
             st.rerun()
 
-# PHASE 3
+# PHASE 3 : GPS
 elif affichage_actuel == 3:
     st.subheader("3️⃣ GPS : Plan d'Exécution")
-    final = st.session_state.initial_idea
-    if st.session_state.selected_pivot: final += f" (Option : {st.session_state.selected_pivot})"
-    st.info(f"Projet Validé : {final}")
     
+    final = st.session_state.initial_idea
+    if st.session_state.selected_pivot: 
+        final += f" (Option choisie : {st.session_state.selected_pivot})"
+    
+    st.info(f"📍 Destination validée : {final}")
+    
+    # Si pas de plan (ou plan effacé par le bouton précédent), on propose de le calculer
     if "step3" not in st.session_state.analysis_data:
-        if st.button("Calculer le Plan d'Action"):
-            with st.spinner("Calcul itinéraire..."):
-                res = model.generate_content(f"Plan d'action COO pour : {final}. Goal, Plan, Steps.")
+        if st.button("🚀 Calculer le Plan d'Action"):
+            with st.spinner("Calcul de l'itinéraire optimal..."):
+                prompt = f"Plan d'action COO pour : {final}. Goal (90j), Plan (30j), Steps (Today)."
+                res = model.generate_content(prompt)
                 st.session_state.analysis_data["step3"] = res.text
-                st.session_state.step = 3
                 st.rerun()
                 
+    # Affichage du résultat
     if "step3" in st.session_state.analysis_data:
         st.markdown(st.session_state.analysis_data["step3"])
         
         st.divider()
-        col_end1, col_end2 = st.columns(2)
-        with col_end1:
+        c1, c2 = st.columns(2)
+        with c1:
             st.link_button("💎 Audit Humain (Architecte)", LIEN_ARCHITECTE, type="primary")
-        with col_end2:
-            if st.button("🚀 Reset Total (Nouveau Projet)"):
+        with c2:
+            if st.button("🔄 Nouveau Projet (Reset Total)"):
                 st.session_state.step = 1
                 st.session_state.analysis_data = {}
                 st.session_state.initial_idea = ""
