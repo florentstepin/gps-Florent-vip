@@ -5,70 +5,82 @@ import json
 import time
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Stratège IA", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="Stratège IA", page_icon="🚀", layout="wide")
 
 try:
+    # Récupération des secrets
     API_GOOGLE = st.secrets["GOOGLE_API_KEY"]
     URL_SUPA = st.secrets["SUPABASE_URL"]
     KEY_SUPA = st.secrets["SUPABASE_KEY"]
-    LINK_RECHARGE = st.secrets["LIEN_RECHARGE"] # Lien Lemon Squeezy pour acheter
+    LINK_RECHARGE = st.secrets["LIEN_RECHARGE"] 
     LINK_AUDIT = "https://docs.google.com/forms/d/1B93XGdlUzsSDKMQmGPDNcSK3hT91z_1Tvy3808UWS5A/viewform"
     
+    # Initialisation des clients
     supabase = create_client(URL_SUPA, KEY_SUPA)
     genai.configure(api_key=API_GOOGLE)
     model = genai.GenerativeModel('gemini-2.5-pro')
 except Exception as e:
-    st.error(f"Erreur Config : {e}")
+    st.error(f"❌ Erreur Config : {e}")
     st.stop()
 
-# --- 2. SESSION STATE ---
+# --- 2. GESTION DE L'ÉTAT (SESSION) ---
 if "user" not in st.session_state: st.session_state.user = None
 if "step_unlocked" not in st.session_state: st.session_state.step_unlocked = 1
 if "current_view" not in st.session_state: st.session_state.current_view = "1. Analyse"
 if "project_data" not in st.session_state: 
     st.session_state.project_data = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
 
-# --- 3. FONCTIONS CRITIQUES (ANTI-ABUS) ---
+# --- 3. FONCTIONS CRITIQUES (COEUR DU SYSTÈME) ---
 
-def get_or_create_user(email):
+def handle_login_signup(email):
     """
-    C'est ICI que se joue la sécurité anti-triche.
+    Gestion stricte : 
+    1. Si l'email existe -> On charge le compte (pas de cadeaux).
+    2. Si nouveau -> On crée la ligne avec un code temporaire pour satisfaire Supabase
+       et déclencher l'automatisation Make.
     """
     email = str(email).strip().lower()
     
     try:
-        # 1. On vérifie si l'email existe DÉJÀ
-        # On ne demande pas de code, juste l'email pour l'essai gratuit
+        # A. VÉRIFICATION D'ANTÉRIORITÉ (Anti-Triche)
         existing = supabase.table("users").select("*").eq("email", email).execute()
         
         if existing.data and len(existing.data) > 0:
-            # L'utilisateur existe -> ON LE RETOURNE TEL QUEL (Avec 0 crédit s'il a tout consommé)
-            # On ne réinitialise PAS ses crédits.
+            # L'utilisateur existe déjà : on le retourne tel quel (avec son solde actuel)
             return existing.data[0]
         
         else:
-            # L'utilisateur est nouveau -> On lui offre les 3 crédits de bienvenue
-            new_user_data = {"email": email, "credits": 3}
-            # On insère et on récupère la ligne créée
+            # B. CRÉATION (Signal pour Make)
+            # On met "WAITING_MAKE" pour satisfaire la contrainte NOT NULL de la base de données
+            # Make détectera cette nouvelle ligne et fera son travail (emailing, génération code, etc.)
+            new_user_data = {
+                "email": email,
+                "credits": 3,              # Crédits de bienvenue
+                "access_code": "WAITING_MAKE" # Placeholder technique indispensable
+            }
+            
             created = supabase.table("users").insert(new_user_data).execute()
+            
             if created.data:
                 return created.data[0]
                 
     except Exception as e:
-        st.error(f"Erreur Base de Données : {e}")
+        st.error(f"Erreur de communication Base de Données : {e}")
     return None
 
-def debit_credits(current_user):
-    """Débite 1 crédit sur l'email spécifié"""
+def debit_credits_secure(current_user):
+    """
+    Débite 1 crédit sur l'email (Clé unique).
+    Met à jour l'interface immédiatement.
+    """
     email = current_user["email"]
-    # On recalcule depuis la session pour être à jour
+    
+    # 1. Update Session (Interface fluide)
     current_val = st.session_state.user["credits"]
     new_val = max(0, current_val - 1)
-    
-    # Update Local
     st.session_state.user["credits"] = new_val
     
-    # Update DB
+    # 2. Update DB (Arrière-plan)
     try:
         supabase.table("users").update({"credits": new_val}).eq("email", email).execute()
     except: pass
@@ -85,157 +97,178 @@ def load_json(f):
         st.rerun()
     except: pass
 
-# --- 4. LOGIN (JUSTE L'EMAIL) ---
+# --- 4. ÉCRAN DE DÉMARRAGE (EMAIL SEUL) ---
 if not st.session_state.user:
-    st.title("🚀 Stratège IA : Essai Gratuit")
-    st.markdown("Entrez votre email pour démarrer. **3 crédits offerts aux nouveaux arrivants.**")
+    st.title("🚀 Stratège IA")
+    st.markdown("### Espace de Travail")
+    st.write("Entrez votre email pour accéder à vos dossiers ou démarrer un essai.")
     
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        email_input = st.text_input("Votre Email professionnel :")
-    with col2:
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        email_input = st.text_input("Email professionnel :", placeholder="exemple@entreprise.com")
+    with c2:
         st.write("")
         st.write("")
-        if st.button("Démarrer / Continuer"):
+        if st.button("Accéder / Démarrer", use_container_width=True):
             if email_input and "@" in email_input:
-                with st.spinner("Vérification du compte..."):
-                    # C'est ici qu'on bloque les tricheurs (voir fonction plus haut)
-                    u = get_or_create_user(email_input)
+                with st.spinner("Connexion sécurisée..."):
+                    u = handle_login_signup(email_input)
                     if u:
                         st.session_state.user = u
                         st.rerun()
             else:
-                st.warning("Email invalide.")
+                st.warning("Format d'email incorrect.")
     st.stop()
 
-# --- 5. APPLICATION ---
+# --- 5. APPLICATION (INTERFACE CONNECTÉE) ---
 user = st.session_state.user
 credits = user.get("credits", 0)
 
-# SIDEBAR
+# === BARRE LATÉRALE ===
 with st.sidebar:
     st.header("Compte")
     st.caption(f"👤 {user['email']}")
     
     if credits > 0:
-        st.metric("Crédits restants", credits)
-        st.success("✅ Mode Essai Actif")
+        st.metric("Crédits Dispo", credits)
+        st.success("✅ Actif")
     else:
         st.metric("Crédits", 0)
-        st.error("❌ Essai terminé")
-        st.markdown("Pour continuer à utiliser l'IA, vous devez recharger.")
-        st.link_button("💳 Acheter des crédits", LINK_RECHARGE, type="primary")
+        st.error("❌ Épuisé")
+        st.markdown("Pour continuer, rechargez votre compte.")
+        st.link_button("💳 Recharger (Accès Illimité)", LINK_RECHARGE, type="primary")
     
     st.divider()
-    # Navigation
+    # Navigation Dynamique
     opts = ["1. Analyse"]
     if st.session_state.step_unlocked >= 2: opts.append("2. Pivots")
     if st.session_state.step_unlocked >= 3: opts.append("3. GPS")
     
     try: idx = opts.index(st.session_state.current_view)
     except: idx = 0
-    nav = st.radio("Menu :", opts, index=idx)
+    nav = st.radio("Navigation :", opts, index=idx)
+    
     if nav != st.session_state.current_view:
         st.session_state.current_view = nav
         st.rerun()
         
     st.divider()
-    st.download_button("💾 Sauver Dossier", save_json(), "dossier.json")
-    up = st.file_uploader("📂 Charger Dossier", type="json")
+    st.download_button("💾 Sauvegarder JSON", save_json(), "projet_strategie.json")
+    up = st.file_uploader("📂 Charger JSON", type="json")
     if up: load_json(up)
     
     if st.button("Déconnexion"):
         st.session_state.clear()
         st.rerun()
 
-# MAIN
+# === CONTENU CENTRAL ===
 st.title("🧠 Stratège IA")
 step_n = int(st.session_state.current_view.split(".")[0])
 st.progress(step_n / 3)
 
-# VUE 1
+# --- VUE 1 : ANALYSE ---
 if step_n == 1:
     st.subheader("1️⃣ Analyse Crash-Test")
+    
+    # A. Affichage résultat existant
     if st.session_state.project_data["analysis"]:
-        st.info(f"Projet : {st.session_state.project_data['idea']}")
+        st.info(f"Projet analysé : {st.session_state.project_data['idea']}")
         st.markdown(st.session_state.project_data["analysis"])
+        
         st.divider()
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("Passer à l'étape suivante ➡️"):
+            if st.button("➡️ Passer à l'étape 2 (Pivots)", type="primary"):
                 st.session_state.step_unlocked = max(st.session_state.step_unlocked, 2)
                 st.session_state.current_view = "2. Pivots"
                 st.rerun()
         with c2:
-            with st.expander("Relancer (1 crédit)"):
-                new_i = st.text_area("Correction:", value=st.session_state.project_data["idea"])
-                if st.button("Relancer"):
+            with st.expander("Modifier & Relancer (Coût: 1 crédit)"):
+                new_i = st.text_area("Version corrigée :", value=st.session_state.project_data["idea"])
+                if st.button("Relancer l'analyse"):
                     if credits > 0:
                         st.session_state.project_data["idea"] = new_i
-                        res = model.generate_content(f"Analyse critique: {new_i}")
-                        st.session_state.project_data["analysis"] = res.text
-                        st.session_state.project_data["pivots"] = "" # Reset suite
+                        # Reset des étapes suivantes pour cohérence
+                        st.session_state.project_data["pivots"] = ""
                         st.session_state.project_data["gps"] = ""
-                        debit_credits(user)
-                        st.rerun()
-                    else: st.error("Crédit épuisé. Veuillez acheter.")
+                        
+                        with st.spinner("Analyse V2..."):
+                            res = model.generate_content(f"Analyse critique business de : {new_i}. Format Markdown.")
+                            st.session_state.project_data["analysis"] = res.text
+                            debit_credits_secure(user)
+                            st.rerun()
+                    else: st.error("Crédits insuffisants.")
+
+    # B. Formulaire nouveau projet
     else:
         if credits > 0:
-            txt = st.text_area("Votre idée :")
-            if st.button("Analyser (1 crédit)"):
+            txt = st.text_area("Décrivez votre idée de business :", height=150)
+            if st.button("Lancer l'Analyse (1 crédit)"):
                 if txt:
                     st.session_state.project_data["idea"] = txt
-                    with st.spinner("Analyse..."):
-                        res = model.generate_content(f"Analyse critique business de : {txt}")
+                    with st.spinner("L'IA réfléchit..."):
+                        p = f"Rôle: Expert Business Stratège. Tâche: Analyse critique sans concession de '{txt}'. Output: 1.Macro, 2.Failles, 3.Verdict. Format Markdown."
+                        res = model.generate_content(p)
                         st.session_state.project_data["analysis"] = res.text
                         st.session_state.step_unlocked = 2
-                        debit_credits(user)
+                        debit_credits_secure(user)
                         st.rerun()
         else:
-            st.warning("⚠️ Vos 3 essais gratuits sont terminés.")
-            st.markdown(f"👉 **[Cliquez ici pour obtenir un accès illimité]({LINK_RECHARGE})**")
+            st.warning("⚠️ Votre solde de crédits est épuisé.")
+            st.markdown(f"👉 **[Cliquez ici pour obtenir un accès complet]({LINK_RECHARGE})**")
 
-# VUE 2
+# --- VUE 2 : PIVOTS ---
 elif step_n == 2:
-    st.subheader("2️⃣ Pivots")
+    st.subheader("2️⃣ Pivots Stratégiques")
+    
+    # Auto-génération
     if not st.session_state.project_data["pivots"]:
-        with st.spinner("Génération..."):
-            res = model.generate_content(f"3 Pivots pour {st.session_state.project_data['idea']}")
+        with st.spinner("Recherche de modèles économiques alternatifs..."):
+            res = model.generate_content(f"Propose 3 pivots business radicaux et rentables pour : {st.session_state.project_data['idea']}")
             st.session_state.project_data["pivots"] = res.text
             st.rerun()
             
     st.markdown(st.session_state.project_data["pivots"])
     st.divider()
-    opts_p = ["Initial", "Pivot 1", "Pivot 2", "Pivot 3"]
+    
+    # Sélection
+    opts_p = ["Idée Initiale", "Pivot 1", "Pivot 2", "Pivot 3"]
     try: i = opts_p.index(st.session_state.project_data["choice"])
     except: i = 0
-    ch = st.radio("Choix :", opts_p, index=i)
-    if st.button("Valider"):
+    
+    ch = st.radio("Quelle stratégie choisissez-vous ?", opts_p, index=i)
+    
+    if st.button("Valider et Générer le Plan d'Action"):
         st.session_state.project_data["choice"] = ch
-        st.session_state.project_data["gps"] = ""
+        st.session_state.project_data["gps"] = "" # On efface le GPS pour forcer le recalcul
         st.session_state.step_unlocked = 3
         st.session_state.current_view = "3. GPS"
         st.rerun()
 
-# VUE 3
+# --- VUE 3 : GPS ---
 elif step_n == 3:
-    st.subheader("3️⃣ GPS")
-    fin = f"{st.session_state.project_data['idea']} ({st.session_state.project_data['choice']})"
-    st.info(f"Cible : {fin}")
+    st.subheader("3️⃣ GPS (Plan d'Exécution)")
+    fin = f"{st.session_state.project_data['idea']} (Stratégie: {st.session_state.project_data['choice']})"
+    st.info(f"📍 Destination : {fin}")
     
     if not st.session_state.project_data["gps"]:
-        if st.button("Générer Plan"):
-            with st.spinner("Calcul..."):
-                res = model.generate_content(f"Plan d'action pour {fin}")
+        if st.button("Calculer l'itinéraire"):
+            with st.spinner("Calcul du plan d'action COO..."):
+                res = model.generate_content(f"Agis comme un COO. Donne un plan d'action concret pour : {fin}. Objectifs 90j, Roadmap 30j.")
                 st.session_state.project_data["gps"] = res.text
                 st.rerun()
                 
     if st.session_state.project_data["gps"]:
         st.markdown(st.session_state.project_data["gps"])
         st.divider()
-        st.link_button("💎 Audit Expert", LINK_AUDIT, type="primary")
-        if st.button("Nouveau Projet"):
-            st.session_state.project_data = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
-            st.session_state.step_unlocked = 1
-            st.session_state.current_view = "1. Analyse"
-            st.rerun()
+        
+        c_audit, c_new = st.columns(2)
+        with c_audit:
+            st.link_button("💎 Demander un Audit Humain", LINK_AUDIT, type="primary")
+        with c_new:
+            if st.button("🔄 Nouveau Projet (Reset)"):
+                st.session_state.project_data = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
+                st.session_state.step_unlocked = 1
+                st.session_state.current_view = "1. Analyse"
+                st.rerun()
+                
