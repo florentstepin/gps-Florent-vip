@@ -14,7 +14,15 @@ try:
     KEY_SUPA = st.secrets["SUPABASE_KEY"]
     LINK_RECHARGE = st.secrets["LIEN_RECHARGE"] 
     LINK_AUDIT = "https://docs.google.com/forms/d/1B93XGdlUzsSDKMQmGPDNcSK3hT91z_1Tvy3808UWS5A/viewform"
+    # =========================================================================
+    # 👇 CONFIGURATION AUTOMATIQUE DU FORMULAIRE (NE PAS TOUCHER) 👇
+    # =========================================================================
+    BASE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScKU17kIr4t_Wiwi6uTMd0a2CCUMtqOU0w_yEHb8uAXVfgCZw/viewform"
     
+    ENTRY_EMAIL = "entry.121343077"
+    ENTRY_IDEE  = "entry.1974870243"
+    ENTRY_AUDIT = "entry.1147735867"
+    # =========================================================================
     supabase = create_client(URL_SUPA, KEY_SUPA)
     genai.configure(api_key=API_GOOGLE)
     model = genai.GenerativeModel('gemini-2.5-pro')
