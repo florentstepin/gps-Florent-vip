@@ -52,14 +52,45 @@ def decrement_credits(user_id, current_credits):
     except:
         return current_credits
 
-# --- GESTION CONNEXION ---
+# --- GESTION DU LOGIN (Lien Magique) ---
+
 if "user" not in st.session_state:
     query_params = st.query_params
-    if "access_code" in query_params:
-        user = get_user_by_code(query_params["access_code"])
+    
+    # CORRECTION ICI : On cherche 'code' (comme dans l'email) OU 'access_code'
+    code_url = None
+    if "code" in query_params:
+        code_url = query_params["code"]
+    elif "access_code" in query_params:
+        code_url = query_params["access_code"]
+        
+    if code_url:
+        user = get_user_by_code(code_url)
         if user:
             st.session_state["user"] = user
             st.rerun()
+
+# --- INTERFACE VISUELLE ---
+
+# PARTIE 1 : PAS CONNECTÉ
+if "user" not in st.session_state:
+    st.title("🔐 Accès Réservé")
+    st.markdown("Pour accéder à l'outil, utilisez le lien reçu par email après votre achat.")
+    
+    # Option de secours manuelle
+    code_input = st.text_input("Ou collez votre code d'accès ici :")
+    if st.button("Valider le code"):
+        user = get_user_by_code(code_input)
+        if user:
+            st.session_state["user"] = user
+            st.rerun()
+        else:
+            st.error("Ce code n'est pas reconnu.")
+    
+    st.markdown("---")
+    # CORRECTION LIEN TALLY ICI (Vérifiez bien les guillemets)
+    st.info("Pas encore inscrit ? [Cliquez ici pour obtenir 3 crédits gratuits](https://tally.so/r/3xQqjL)")
+    st.stop()
 
 # --- INTERFACE ---
 
