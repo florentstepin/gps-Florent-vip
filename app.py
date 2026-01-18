@@ -14,7 +14,7 @@ st.set_page_config(page_title="Stratège IA : De l'Idée à l'Action", page_icon
 SUPABASE_URL = "https://idvkrilkrfpzdmmmxgnj.supabase.co" 
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkdmtyaWxrcmZwemRtbW14Z25qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzNjY4NTIsImV4cCI6MjA4Mzk0Mjg1Mn0.pmjlyfNbe_4V4j26KeiFgUkNzI9tz9zPY3DwJho_RRU"
 # 2. Votre clé GOOGLE GEMINI 
-GOOGLE_API_KEY = "AIzaSyDsYZxJmLnLtfeA60IDDLnRv9Sm8cMdYdw"
+GOOGLE_API_KEY = "AIzaSyCHXZecD22-YyrAhiKUkgli4aBzKsWgAeg"
 # 3. Votre lien de paiement 
 LIEN_PAIEMENT = "https://ia-brainstormer.lemonsqueezy.com/checkout/buy/df3c85cc-c30d-4e33-b40a-0e1ee4ebab67"
 # 4. Modèle IA
