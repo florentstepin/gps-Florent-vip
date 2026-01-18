@@ -1,6 +1,6 @@
 import streamlit as st
 from supabase import create_client, Client
-from openai import OpenAI
+import google.generativeai as genai
 
 # --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
@@ -9,46 +9,51 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 1. CONNEXION AUX SERVICES (SECRETS) ---
-# Assurez-vous que vos secrets sont bien dans .streamlit/secrets.toml
+# --- 1. RÉCUPÉRATION DES SECRETS (Existants) ---
+# Le code va chercher vos clés actuelles dans .streamlit/secrets.toml
+# Il ne faut RIEN changer ici si cela marchait avant.
 try:
     SUPABASE_URL = st.secrets["SUPABASE_URL"]
     SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-    OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-except:
-    st.error("⚠️ Il manque les clés API dans les secrets (.streamlit/secrets.toml).")
+    # On cherche la clé Google. Si elle s'appelle différemment dans vos secrets
+    # (ex: GEMINI_API_KEY), modifiez juste le nom entre guillemets ci-dessous.
+    GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
+except Exception as e:
+    st.error(f"Erreur de secrets : {e}. Vérifiez votre fichier .streamlit/secrets.toml")
     st.stop()
 
-# Initialisation des clients
+# Connexion Supabase
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-client = OpenAI(api_key=OPENAI_API_KEY)
+
+# Connexion Google Gemini
+genai.configure(api_key=GOOGLE_API_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash') # Modèle rapide et efficace
 
 # --- 2. FONCTIONS UTILITAIRES ---
 
 def get_user_by_code(access_code):
-    """Cherche un utilisateur par son code d'accès"""
+    """Récupère l'utilisateur via son code d'accès unique"""
     try:
         response = supabase.table("users").select("*").eq("access_code", access_code).execute()
         if response.data and len(response.data) > 0:
             return response.data[0]
         return None
     except Exception as e:
-        st.error(f"Erreur de connexion DB: {e}")
+        st.error(f"Erreur DB (Recherche): {e}")
         return None
 
 def decrement_credits(user_id, current_credits):
-    """Enlève 1 crédit à l'utilisateur"""
+    """Enlève 1 crédit après usage"""
     try:
         new_credits = max(0, current_credits - 1)
         supabase.table("users").update({"credits": new_credits}).eq("id", user_id).execute()
         return new_credits
     except Exception as e:
-        st.error(f"Erreur lors du débit des crédits: {e}")
+        st.error(f"Erreur DB (Débit): {e}")
         return current_credits
 
-# --- 3. GESTION DE LA SESSION (LOGIN) ---
+# --- 3. GESTION DE LA CONNEXION (URL MAGIC LINK) ---
 
-# Vérification du lien magique (URL)
 if "user" not in st.session_state:
     query_params = st.query_params
     if "access_code" in query_params:
@@ -56,119 +61,90 @@ if "user" not in st.session_state:
         user = get_user_by_code(code_url)
         if user:
             st.session_state["user"] = user
-            st.rerun() # Recharger pour nettoyer l'URL
+            st.rerun()
 
 # --- 4. INTERFACE UTILISATEUR ---
 
-# A. SI PAS CONNECTÉ
+# CAS A : PAS CONNECTÉ
 if "user" not in st.session_state:
     st.title("🔐 Accès Réservé")
-    st.markdown("Veuillez utiliser votre **lien magique** reçu par email.")
+    st.write("Veuillez utiliser le lien reçu par email.")
     
-    # Optionnel : Connexion manuelle de secours
-    code_input = st.text_input("Ou entrez votre code d'accès ici :")
-    if st.button("Se connecter"):
+    # Connexion de secours
+    code_input = st.text_input("Ou entrez votre code ici :")
+    if st.button("Valider"):
         user = get_user_by_code(code_input)
         if user:
             st.session_state["user"] = user
             st.rerun()
         else:
-            st.error("Code invalide.")
+            st.error("Code inconnu.")
     
     st.markdown("---")
-    st.info("Pas encore inscrit ? [Cliquez ici pour obtenir 3 crédits gratuits](https://tally.so/r/Bzp6E4)") # REMPLACEZ PAR VOTRE LIEN TALLY
+    # LIEN TALLY (Déjà rempli pour vous)
+    st.info("Pas encore de compte ? [3 crédits offerts ici](https://tally.so/r/3xQqjL)")
     st.stop()
 
-# B. SI CONNECTÉ (LE VRAI PROGRAMME)
+# CAS B : CONNECTÉ (L'APPLICATION)
 user = st.session_state["user"]
 credits = user["credits"]
 
-# --- SIDEBAR (Infos Compte) ---
+# --- BARRE LATÉRALE (SIDEBAR) ---
 with st.sidebar:
-    st.header("Mon Compte 👤")
-    st.write(f"**Email :** {user['email']}")
+    st.header("Mon Compte")
+    st.write(f"👤 {user['email']}")
     
-    # Affichage dynamique des crédits
     if credits > 0:
-        st.metric(label="Crédits restants", value=credits, delta="Actif")
+        st.metric("Crédits", credits, delta="Disponible")
     else:
-        st.metric(label="Crédits restants", value=0, delta="Épuisé", delta_color="inverse")
-        st.error("🚫 Vous n'avez plus de crédits.")
-        # LIEN DE PAIEMENT LEMON SQUEEZY
-        st.markdown(f"[👉 Recharger mon compte (49€)](https://ia-brainstormer.lemonsqueezy.com/checkout/buy/df3c85cc-c30d-4e33-b40a-0e1ee4ebab67)", unsafe_allow_html=True) # REMPLACEZ PAR VOTRE LIEN CHECKOUT LEMON
+        st.metric("Crédits", 0, delta="Épuisé", delta_color="inverse")
+        st.warning("Plus de crédits !")
+        
+        # --- 🛑 ZONE À MODIFIER CI-DESSOUS ---
+        # Remplacez le lien entre parenthèses par votre lien Lemon Squeezy
+        st.markdown("[👉 Recharger (49€)](https://ia-brainstormer.lemonsqueezy.com/checkout/buy/df3c85cc-c30d-4e33-b40a-0e1ee4ebab67)", unsafe_allow_html=True)
+        # -------------------------------------
 
-    st.markdown("---")
-    if st.button("Déconnexion"):
+    st.divider()
+    if st.button("Se déconnecter"):
         del st.session_state["user"]
         st.rerun()
 
-# --- MAIN CONTENT (L'IA) ---
-
-st.title("🚀 Mon Générateur IA : Critique & GPS")
+# --- CŒUR DE L'APP (IA GOOGLE) ---
+st.title("🚀 Générateur IA : Critique & GPS")
 
 if credits > 0:
-    st.success(f"Bienvenue ! Vous avez {credits} crédits. Prêt à challenger vos idées ?")
+    user_input = st.text_area("Votre idée ou projet :", height=150)
     
-    user_input = st.text_area("Entrez votre idée, votre projet ou votre problématique ici :", height=150)
-    
-    if st.button("🔥 Lancer l'analyse (Coût : 1 crédit)"):
+    if st.button("Lancer l'analyse (1 crédit)"):
         if not user_input:
-            st.warning("Veuillez écrire quelque chose d'abord !")
+            st.warning("Écrivez quelque chose d'abord !")
         else:
-            with st.spinner("L'Avocat du Diable analyse votre idée..."):
-                
-                # --- ETAPE 1 : L'AVOCAT DU DIABLE ---
-                prompt_avocat = f"""
-                Agis comme un "Avocat du Diable" impitoyable mais constructif.
-                Analyse l'idée suivante : "{user_input}".
-                Identifie 3 failles majeures, 2 risques cachés et 1 biais cognitif potentiel.
-                Sois direct, incisif, mais termine par une note encourageante.
-                """
-                
-                response_avocat = client.chat.completions.create(
-                    model="gpt-4o-mini", # Ou gpt-3.5-turbo ou gpt-4
-                    messages=[{"role": "user", "content": prompt_avocat}]
-                )
-                analyse_critique = response_avocat.choices[0].message.content
-                
-                # --- ETAPE 2 : LE SYSTÈME GPS ---
-                prompt_gps = f"""
-                Agis comme un système GPS stratégique (Goal - Plan - Step).
-                Basé sur l'idée : "{user_input}" et les critiques potentielles.
-                Donne-moi :
-                1. GOAL (L'objectif reformulé et clarifié)
-                2. PLAN (La stratégie en 3 grandes phases)
-                3. STEP (La toute première action concrète à faire dans les 24h)
-                """
-                
-                response_gps = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": prompt_gps}]
-                )
-                plan_gps = response_gps.choices[0].message.content
-
-                # --- AFFICHAGE DES RÉSULTATS ---
-                st.markdown("### 😈 L'Analyse de l'Avocat du Diable")
-                st.write(analyse_critique)
-                
-                st.markdown("---")
-                
-                st.markdown("### 📍 Le Système GPS (Plan d'Action)")
-                st.write(plan_gps)
-                
-                # --- DEBITER LE CRÉDIT ---
-                new_balance = decrement_credits(user["id"], credits)
-                
-                # Mettre à jour la session pour l'affichage immédiat
-                user["credits"] = new_balance
-                st.session_state["user"] = user
-                
-                st.toast("✅ Analyse terminée ! 1 crédit utilisé.", icon="🎉")
-                
-                # Petit bouton pour rafraichir le compteur visuel si besoin
-                if st.button("Nouvelle recherche"):
-                    st.rerun()
+            with st.spinner("Analyse par Google Gemini en cours..."):
+                try:
+                    # 1. Avocat du Diable
+                    prompt_critique = f"Agis comme un critique constructif. Trouve 3 failles et 2 risques pour cette idée : '{user_input}'."
+                    res_critique = model.generate_content(prompt_critique)
+                    
+                    # 2. GPS
+                    prompt_gps = f"Agis comme un stratège. Donne un Objectif, un Plan en 3 étapes et la 1ère action pour : '{user_input}'."
+                    res_gps = model.generate_content(prompt_gps)
+                    
+                    # 3. Affichage
+                    st.subheader("😈 Analyse Critique")
+                    st.write(res_critique.text)
+                    st.divider()
+                    st.subheader("📍 Plan GPS")
+                    st.write(res_gps.text)
+                    
+                    # 4. Débit Crédit
+                    new_solde = decrement_credits(user["id"], credits)
+                    user["credits"] = new_solde
+                    st.session_state["user"] = user
+                    st.toast("Terminé ! Crédit débité.", icon="✅")
+                    
+                except Exception as e:
+                    st.error(f"Erreur lors de la génération : {e}")
 
 else:
-    st.warning("Vous devez recharger votre compte pour utiliser le générateur.")
-    st.info("Le lien de paiement est disponible dans la barre latérale à gauche.")
+    st.error("Vous devez recharger votre compte pour utiliser l'IA.")
