@@ -261,12 +261,9 @@ elif st.session_state.current_page == 3:
                 st.session_state.project_data["gps"] = res
                 status.update(label="✅ Itinéraire prêt !", state="complete", expanded=False)
             st.rerun()
-   
-                res = model.generate_content(f"Plan d'action: {tgt}").text
-                st.session_state.project["gps"] = res
-                st.rerun()
-            except Exception as e: st.error(f"Erreur IA: {e}")
-    st.markdown(st.session_state.project["gps"])
+    if st.session_state.project_data["gps"]:
+         st.markdown(st.session_state.project_data["gps"])
+         
     st.divider()
     st.success("Terminé.")
     st.link_button("💎 Réserver Audit (Pré-rempli)", generate_form_link(), type="primary")
