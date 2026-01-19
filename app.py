@@ -6,6 +6,7 @@ import time
 import os
 import urllib.parse
 import uuid # VITAL POUR MAKE
+import re   # <--- NOUVEAU : Pour nettoyer le texte (Regex)
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Stratège IA", page_icon="🎯", layout="wide")
@@ -35,6 +36,7 @@ except Exception as e:
 # --- 2. INITIALISATION ---
 if "user" not in st.session_state: st.session_state.user = None
 if "current_page" not in st.session_state: st.session_state.current_page = 1
+if "user_note" not in st.session_state: st.session_state.user_note = "" # Stockage note client
 if "project" not in st.session_state:
     st.session_state.project = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
 
@@ -50,7 +52,7 @@ def login_user(email):
         unique_code = str(uuid.uuid4())
         new = {
             "email": email, 
-            "credits": 2, # <--- 2 CREDITS = Analyse (1) + Pivots (1). GPS (Bloqué).
+            "credits": 2, # Stratégie 2 crédits
             "access_code": unique_code 
         }
         res = supabase.table("users").insert(new).execute()
@@ -71,34 +73,62 @@ def consume_credit():
         except: pass
         st.session_state.user['credits'] = new_val
 
+def clean_markdown(text):
+    """
+    Nettoie le texte IA pour qu'il soit lisible dans Excel.
+    Enlève les **, ##, et reformate les listes.
+    """
+    if not text: return ""
+    # Enlève les caractères gras/italiques Markdown (** ou *)
+    text = re.sub(r'\*\*|__', '', text)
+    # Enlève les titres Markdown (###)
+    text = re.sub(r'#+', '', text)
+    # Remplace les puces Markdown par des tirets simples
+    text = re.sub(r'^\s*[\-\*]\s+', '- ', text, flags=re.MULTILINE)
+    return text.strip()
+
 def generate_form_link():
+    """Génère un lien propre et optimisé pour Excel"""
     if not st.session_state.user: return BASE_FORM_URL
+    
     email = st.session_state.user['email']
     idee = st.session_state.project.get("idea", "")
-    audit = st.session_state.project.get("analysis", "")[:1500]
-    if len(st.session_state.project.get("analysis", "")) > 1500: audit += "..."
-    params = {ENTRY_EMAIL: email, ENTRY_IDEE: idee, ENTRY_AUDIT: audit}
+    note_client = st.session_state.user_note
+    raw_audit = st.session_state.project.get("analysis", "")
+    
+    # 1. Nettoyage du Markdown
+    clean_audit = clean_markdown(raw_audit)
+    
+    # 2. Construction du contenu structuré pour Excel
+    # On limite la taille totale pour éviter que le lien ne casse (max ~1500 chars conseillé)
+    final_content = f"--- PROJET CLIENT ---\n{idee}\n\n"
+    if note_client:
+        final_content += f"--- NOTE DU CLIENT ---\n{note_client}\n\n"
+    
+    final_content += f"--- AUDIT IA (EXTRAIT) ---\n{clean_audit[:1200]}..." # Tronqué propre
+    
+    params = {
+        ENTRY_EMAIL: email, 
+        ENTRY_IDEE: idee, # On garde l'idée brute dans sa colonne
+        ENTRY_AUDIT: final_content # Colonne Audit optimisée Excel
+    }
     return f"{BASE_FORM_URL}?{urllib.parse.urlencode(params)}"
 
 def reset_project():
     st.session_state.project = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
+    st.session_state.user_note = ""
     st.session_state.current_page = 1
     st.rerun()
 
 def load_json(uploaded_file):
     try:
-        uploaded_file.seek(0) # Fix lecture unique
+        uploaded_file.seek(0)
         data = json.load(uploaded_file)
-        
         clean_data = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
         clean_data.update(data.get("data", {}))
-        
         st.session_state.project = clean_data
         st.session_state.current_page = 1
-        
-        file_signature = f"{uploaded_file.name}_{uploaded_file.size}"
-        st.session_state.last_loaded_signature = file_signature
-        
+        st.session_state.last_loaded_signature = f"{uploaded_file.name}_{uploaded_file.size}"
         st.success("Dossier chargé !")
         time.sleep(0.5)
         st.rerun()
@@ -132,9 +162,22 @@ with st.sidebar:
     else: 
         st.error("0 Crédits")
         st.link_button("Recharger", LINK_RECHARGE, type="primary")
+    
     st.divider()
     st.info("💎 **Expert Humain**")
+    
+    # --- INPUT DE QUALIFICATION ---
+    st.write("Une précision pour l'expert ?")
+    st.session_state.user_note = st.text_area("Note optionnelle", 
+                                              value=st.session_state.user_note, 
+                                              height=70, 
+                                              placeholder="Ex: Mon budget est de...",
+                                              label_visibility="collapsed")
+    
+    # Le lien intègre maintenant la note et le texte nettoyé
     st.link_button("Réserver Audit (Pré-rempli)", generate_form_link(), type="primary", use_container_width=True)
+    # ------------------------------
+
     st.divider()
     st.write("### 🧭 Navigation")
     if st.button("1. Analyse"): 
@@ -238,7 +281,6 @@ elif st.session_state.current_page == 2:
         st.info(f"📌 Projet : {st.session_state.project['idea']}")
     
     if not st.session_state.project["pivots"]:
-        # --- BLOCAGE SI PAS DE CRÉDIT ---
         if credits > 0: 
             with st.status("💡 Recherche de Pivots en cours...", expanded=True) as status:
                 st.write("🔄 Analyse des Business Models alternatifs...")
@@ -250,9 +292,7 @@ elif st.session_state.current_page == 2:
                 try:
                     res = model.generate_content(f"3 Pivots business créatifs pour: {st.session_state.project['idea']}").text
                     st.session_state.project["pivots"] = res
-                    
-                    consume_credit() # <--- DÉBIT ICI
-                    
+                    consume_credit()
                     status.update(label="✅ 3 Stratégies trouvées !", state="complete", expanded=False)
                     st.rerun()
                 except Exception as e:
@@ -283,7 +323,6 @@ elif st.session_state.current_page == 3:
     st.info(f"Objectif : {tgt}")
     
     if not st.session_state.project["gps"]:
-        # --- BLOCAGE SI PAS DE CRÉDIT ---
         if credits > 0:
             with st.status("🗺️ Calcul itinéraire...", expanded=True) as status:
                 st.write("📅 Définition des objectifs à 90 jours...")
@@ -292,9 +331,7 @@ elif st.session_state.current_page == 3:
                 try:
                     res = model.generate_content(f"Plan d'action opérationnel (GPS) pour: {tgt}").text
                     st.session_state.project["gps"] = res
-                    
-                    consume_credit() # <--- DÉBIT ICI
-                    
+                    consume_credit()
                     status.update(label="✅ Itinéraire prêt !", state="complete", expanded=False)
                     st.rerun()
                 except Exception as e:
