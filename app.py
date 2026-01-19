@@ -238,8 +238,7 @@ elif st.session_state.current_page == 2:
             status.update(label="✅ 3 Stratégies trouvées !", state="complete", expanded=False)
         st.rerun()
         # ----------------
-   
-            try:
+        
                 res = model.generate_content(f"3 Pivots pour: {st.session_state.project['idea']}").text
                 st.session_state.project["pivots"] = res
                 st.rerun()
@@ -276,7 +275,6 @@ elif st.session_state.current_page == 3:
                 status.update(label="✅ Itinéraire prêt !", state="complete", expanded=False)
             st.rerun()
    
-            try:
                 res = model.generate_content(f"Plan d'action: {tgt}").text
                 st.session_state.project["gps"] = res
                 st.rerun()
