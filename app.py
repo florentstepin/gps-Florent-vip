@@ -157,7 +157,9 @@ with st.sidebar:
     if up:
         signature = f"{up.name}_{up.size}"
         if st.session_state.get("last_loaded_signature") != signature:
-            load_json(up)
+            # Spinner visible pour le chargement
+            with st.spinner("Patientez pendant le téléchargement de votre dossier..."):
+                load_json(up)
     
     if st.button("Déconnexion"):
         st.session_state.clear()
@@ -233,20 +235,23 @@ if st.session_state.current_page == 1:
 elif st.session_state.current_page == 2:
     st.subheader("2️⃣ Pivots Stratégiques")
     
+    # RAPPEL DU CONTEXTE (Optionnel mais sympa)
+    if st.session_state.project["idea"]:
+        st.info(f"📌 Projet : {st.session_state.project['idea']}")
+    
+    # LOGIQUE "THINKING" RESTAURÉE (Version Longue)
     if not st.session_state.project["pivots"]:
-        # CORRECTION VISUELLE : Animation forcée pour éviter l'effet "figé"
-        with st.status("💡 Recherche de Pivots (Analyse approfondie)...", expanded=True) as status:
-            time.sleep(0.5) # Force l'affichage du status avant le calcul
-            st.write("🔄 Analyse des modèles économiques...")
-            time.sleep(1)
-            st.write("🌍 Scan des marchés adjacents...")
-            time.sleep(1)
-            st.write("🚀 Génération des scénarios de rupture...")
+        with st.status("💡 Recherche de Pivots en cours...", expanded=True) as status:
+            st.write("🔄 Analyse des Business Models alternatifs...")
+            time.sleep(1.5) # Temps de lecture (Comme dans votre version qui marchait)
+            st.write("🚀 Brainstorming des stratégies de scalabilité...")
+            time.sleep(1.5)
+            st.write("✍️ Formalisation des 3 options...")
             
             try:
                 res = model.generate_content(f"3 Pivots business créatifs pour: {st.session_state.project['idea']}").text
                 st.session_state.project["pivots"] = res
-                status.update(label="✅ Pivots trouvés !", state="complete", expanded=False)
+                status.update(label="✅ 3 Stratégies trouvées !", state="complete", expanded=False)
                 st.rerun()
             except Exception as e:
                 status.update(label="❌ Erreur", state="error")
@@ -273,9 +278,9 @@ elif st.session_state.current_page == 3:
     
     if not st.session_state.project["gps"]:
         with st.status("🗺️ Calcul itinéraire...", expanded=True) as status:
-            st.write("Définition des étapes clés...")
+            st.write("📅 Définition des objectifs à 90 jours...")
             time.sleep(1)
-            st.write("Optimisation des ressources...")
+            st.write("⚡ Identification des actions immédiates...")
             try:
                 res = model.generate_content(f"Plan d'action opérationnel (GPS) pour: {tgt}").text
                 st.session_state.project["gps"] = res
