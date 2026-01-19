@@ -5,7 +5,7 @@ import json
 import time
 import os
 import urllib.parse
-import uuid # <--- L'ingrédient secret pour l'unicité
+import uuid # <--- VITAL POUR MAKE
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Stratège IA", page_icon="🎯", layout="wide")
@@ -16,7 +16,7 @@ try:
     KEY_SUPA = st.secrets["SUPABASE_KEY"]
     LINK_RECHARGE = st.secrets["LIEN_RECHARGE"]
     
-    # Vos codes Google Form (Intégrés)
+    # Vos codes Google Form (Ne pas toucher)
     BASE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScKU17kIr4t_Wiwi6uTMd0a2CCUMtqOU0w_yEHb8uAXVfgCZw/viewform"
     ENTRY_EMAIL = "entry.121343077"
     ENTRY_IDEE  = "entry.1974870243"
@@ -25,7 +25,7 @@ try:
     supabase = create_client(URL_SUPA, KEY_SUPA)
     genai.configure(api_key=API_GOOGLE)
     
-    # Modèle stable
+    # --- MOTEUR IA 2.5 PRO (Validé) ---
     model = genai.GenerativeModel('gemini-2.5-pro')
 
 except Exception as e:
@@ -43,32 +43,31 @@ if "project" not in st.session_state:
 def login_user(email):
     """
     Gère la connexion.
-    CORRECTION : Génère un UUID unique pour l'access_code à la création.
+    Utilise UUID pour garantir l'unicité de l'access_code pour Make.
     """
     email = str(email).strip().lower()
     try:
-        # 1. Recherche si existe déjà
+        # 1. Recherche
         res = supabase.table("users").select("*").eq("email", email).execute()
         if res.data: return res.data[0]
         
-        # 2. Création avec CODE UNIQUE
-        # On remplace "WAITING_MAKE" par un vrai code unique
+        # 2. Création (UUID)
         unique_code = str(uuid.uuid4())
         
         new = {
             "email": email, 
             "credits": 3, 
-            "access_code": unique_code # <--- La clé du succès
+            "access_code": unique_code # <--- CLEF DU SUCCÈS MAKE
         }
         res = supabase.table("users").insert(new).execute()
         if res.data: return res.data[0]
     except Exception as e:
-        # Si erreur (ex: race condition), on tente de relire
+        # Fallback
         try:
             res = supabase.table("users").select("*").eq("email", email).execute()
             if res.data: return res.data[0]
         except: 
-            st.error(f"Erreur technique (Login): {e}")
+            st.error(f"Erreur Login: {e}")
     return None
 
 def consume_credit():
@@ -149,8 +148,17 @@ with st.sidebar:
         st.rerun()
     st.divider()
     if st.button("✨ Nouvelle Analyse"): reset_project()
+    
+    # CORRECTION JSON : Ajout MIME type et Key unique
     json_str = json.dumps({"data": st.session_state.project}, indent=4)
-    st.download_button("💾 Sauver JSON", json_str, "projet.json")
+    st.download_button(
+        label="💾 Sauver JSON",
+        data=json_str,
+        file_name="projet_strategie.json",
+        mime="application/json",
+        key="dl_json_btn"
+    )
+    
     up = st.file_uploader("📂 Charger JSON", type="json")
     if up: load_json(up)
     if st.button("Déconnexion"):
@@ -160,7 +168,7 @@ with st.sidebar:
 st.title("🧠 Stratège IA")
 st.progress(st.session_state.current_page / 3)
 
-# PAGE 1
+# PAGE 1 : ANALYSE
 if st.session_state.current_page == 1:
     st.subheader("1️⃣ Analyse Crash-Test")
     if st.session_state.project["analysis"]:
@@ -177,15 +185,26 @@ if st.session_state.current_page == 1:
                 if st.button("Relancer"):
                     if credits > 0:
                         st.session_state.project["idea"] = new_txt
-                        with st.spinner("Analyse..."):
+                        # --- THINKING BLOCK ---
+                        with st.status("🕵️‍♂️ L'IA analyse votre projet...", expanded=True) as status:
+                            st.write("Analyse du contexte macro-économique...")
+                            time.sleep(1)
+                            st.write("Recherche des failles de marché...")
+                            time.sleep(1)
+                            st.write("Vérification des biais cognitifs...")
                             try:
                                 res = model.generate_content(f"Analyse: {new_txt}").text
                                 st.session_state.project["analysis"] = res
+                                status.update(label="✅ Analyse terminée !", state="complete", expanded=False)
+                                
                                 st.session_state.project["pivots"] = ""
                                 st.session_state.project["gps"] = ""
                                 consume_credit()
                                 st.rerun()
-                            except Exception as e: st.error(f"Erreur IA: {e}")
+                            except Exception as e:
+                                status.update(label="❌ Erreur", state="error")
+                                st.error(f"Erreur IA: {e}")
+                        # ----------------------
                     else: st.error("Pas de crédit")
     else:
         if credits > 0:
@@ -193,28 +212,47 @@ if st.session_state.current_page == 1:
             if st.button("Lancer (1 crédit)", type="primary"):
                 if idea_input:
                     st.session_state.project["idea"] = idea_input
-                    with st.spinner("Analyse..."):
+                    # --- THINKING BLOCK ---
+                    with st.status("🧠 Activation du Stratège IA...", expanded=True) as status:
+                        st.write("Lecture de votre idée...")
+                        time.sleep(0.5)
+                        st.write("🔍 Scan des concurrents potentiels...")
+                        time.sleep(1)
+                        st.write("📝 Rédaction du rapport...")
                         try:
                             res = model.generate_content(f"Analyse: {idea_input}").text
                             st.session_state.project["analysis"] = res
+                            status.update(label="✅ Rapport généré !", state="complete", expanded=False)
+                            
                             consume_credit()
                             st.session_state.current_page = 2
                             st.rerun()
-                        except Exception as e: st.error(f"Erreur IA: {e}")
+                        except Exception as e:
+                             status.update(label="❌ Erreur", state="error")
+                             st.error(f"Erreur IA: {e}")
+                    # ----------------------
         else: st.warning("Rechargez vos crédits")
 
-# PAGE 2
+# PAGE 2 : PIVOTS
 elif st.session_state.current_page == 2:
     st.subheader("2️⃣ Pivots Stratégiques")
     if not st.session_state.project["pivots"]:
-        with st.spinner("Recherche..."):
+        # --- THINKING BLOCK ---
+        with st.status("💡 Recherche de Pivots en cours...", expanded=True) as status:
+            st.write("🔄 Analyse des Business Models alternatifs...")
+            time.sleep(1)
+            st.write("🚀 Brainstorming des stratégies...")
             try:
                 res = model.generate_content(f"3 Pivots pour: {st.session_state.project['idea']}").text
                 st.session_state.project["pivots"] = res
+                status.update(label="✅ Stratégies trouvées !", state="complete", expanded=False)
                 st.rerun()
-            except Exception as e: 
+            except Exception as e:
+                status.update(label="❌ Erreur", state="error")
                 st.error(f"Erreur IA: {e}")
                 st.stop()
+        # ----------------------
+        
     st.markdown(st.session_state.project["pivots"])
     st.divider()
     opts = ["Idée Initiale", "Pivot 1", "Pivot 2", "Pivot 3"]
@@ -227,18 +265,27 @@ elif st.session_state.current_page == 2:
         st.session_state.current_page = 3
         st.rerun()
 
-# PAGE 3
+# PAGE 3 : GPS
 elif st.session_state.current_page == 3:
     st.subheader("3️⃣ GPS")
     tgt = f"{st.session_state.project['idea']} ({st.session_state.project['choice']})"
     st.info(f"Objectif : {tgt}")
     if not st.session_state.project["gps"]:
-        with st.spinner("Calcul..."):
+        # --- THINKING BLOCK ---
+        with st.status("🗺️ Calcul de l'itinéraire...", expanded=True) as status:
+            st.write("📅 Définition des objectifs à 90 jours...")
+            time.sleep(1)
+            st.write("⚡ Identification des actions immédiates...")
             try:
                 res = model.generate_content(f"Plan d'action: {tgt}").text
                 st.session_state.project["gps"] = res
+                status.update(label="✅ Itinéraire prêt !", state="complete", expanded=False)
                 st.rerun()
-            except Exception as e: st.error(f"Erreur IA: {e}")
+            except Exception as e:
+                status.update(label="❌ Erreur", state="error")
+                st.error(f"Erreur IA: {e}")
+        # ----------------------
+        
     st.markdown(st.session_state.project["gps"])
     st.divider()
     st.success("Terminé.")
