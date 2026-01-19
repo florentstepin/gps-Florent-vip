@@ -187,7 +187,6 @@ if st.session_state.current_page == 1:
                         st.session_state.project_data["analysis"] = model.generate_content(f"Analyse critique: {n}").text
                         status.update(label="✅ Analyse terminée !", state="complete", expanded=False)
                     # ----------------
-                                res = model.generate_content(f"Analyse: {new_txt}").text
                                 st.session_state.project["analysis"] = res
                                 st.session_state.project["pivots"] = ""
                                 st.session_state.project["gps"] = ""
@@ -213,8 +212,6 @@ if st.session_state.current_page == 1:
                         st.session_state.project_data["analysis"] = model.generate_content(f"Analyse critique: {t}").text
                         status.update(label="✅ Rapport généré !", state="complete", expanded=False)
                     # ----------------
-                        try:
-                            res = model.generate_content(f"Analyse: {idea_input}").text
                             st.session_state.project["analysis"] = res
                             consume_credit()
                             st.session_state.current_page = 2
@@ -238,8 +235,6 @@ elif st.session_state.current_page == 2:
             status.update(label="✅ 3 Stratégies trouvées !", state="complete", expanded=False)
         st.rerun()
         # ----------------
-        
-                res = model.generate_content(f"3 Pivots pour: {st.session_state.project['idea']}").text
                 st.session_state.project["pivots"] = res
                 st.rerun()
             except Exception as e: 
