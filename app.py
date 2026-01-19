@@ -209,11 +209,10 @@ if st.session_state.current_page == 1:
                         st.write("📝 Rédaction du rapport...")
                         st.session_state.project_data["analysis"] = model.generate_content(f"Analyse critique: {t}").text
                         status.update(label="✅ Rapport généré !", state="complete", expanded=False)
-                    # ----------------
-                            st.session_state.project["analysis"] = res
-                            consume_credit()
-                            st.session_state.current_page = 2
-                            st.rerun()
+                   # ----------------
+                    st.session_state.step_unlocked = 2
+                    debiter_1_credit(user)
+                    st.rerun()
                         except Exception as e: st.error(f"Erreur IA: {e}")
         else: st.warning("Rechargez vos crédits")
 
