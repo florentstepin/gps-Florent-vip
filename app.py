@@ -50,7 +50,7 @@ def login_user(email):
         unique_code = str(uuid.uuid4())
         new = {
             "email": email, 
-            "credits": 2, # <--- MODIFICATION STRATÉGIQUE : 2 CRÉDITS (Analyse + Pivots offerts, GPS payant)
+            "credits": 2, # <--- 2 CREDITS = Analyse (1) + Pivots (1). GPS (Bloqué).
             "access_code": unique_code 
         }
         res = supabase.table("users").insert(new).execute()
@@ -157,7 +157,6 @@ with st.sidebar:
     if up:
         signature = f"{up.name}_{up.size}"
         if st.session_state.get("last_loaded_signature") != signature:
-            # Spinner visible pour le chargement
             with st.spinner("Patientez pendant le téléchargement de votre dossier..."):
                 load_json(up)
     
@@ -235,28 +234,35 @@ if st.session_state.current_page == 1:
 elif st.session_state.current_page == 2:
     st.subheader("2️⃣ Pivots Stratégiques")
     
-    # RAPPEL DU CONTEXTE
     if st.session_state.project["idea"]:
         st.info(f"📌 Projet : {st.session_state.project['idea']}")
     
-    # ANIMATION RENFORCÉE (Version Longue Validée)
     if not st.session_state.project["pivots"]:
-        with st.status("💡 Recherche de Pivots en cours...", expanded=True) as status:
-            st.write("🔄 Analyse des Business Models alternatifs...")
-            time.sleep(1.5) # Temps de lecture long
-            st.write("🚀 Brainstorming des stratégies de scalabilité...")
-            time.sleep(1.5)
-            st.write("✍️ Formalisation des 3 options...")
-            
-            try:
-                res = model.generate_content(f"3 Pivots business créatifs pour: {st.session_state.project['idea']}").text
-                st.session_state.project["pivots"] = res
-                status.update(label="✅ 3 Stratégies trouvées !", state="complete", expanded=False)
-                st.rerun()
-            except Exception as e:
-                status.update(label="❌ Erreur", state="error")
-                st.error(f"Erreur IA: {e}")
-                st.stop()
+        # --- BLOCAGE SI PAS DE CRÉDIT ---
+        if credits > 0: 
+            with st.status("💡 Recherche de Pivots en cours...", expanded=True) as status:
+                st.write("🔄 Analyse des Business Models alternatifs...")
+                time.sleep(1.5)
+                st.write("🚀 Brainstorming des stratégies de scalabilité...")
+                time.sleep(1.5)
+                st.write("✍️ Formalisation des 3 options...")
+                
+                try:
+                    res = model.generate_content(f"3 Pivots business créatifs pour: {st.session_state.project['idea']}").text
+                    st.session_state.project["pivots"] = res
+                    
+                    consume_credit() # <--- DÉBIT ICI
+                    
+                    status.update(label="✅ 3 Stratégies trouvées !", state="complete", expanded=False)
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="❌ Erreur", state="error")
+                    st.error(f"Erreur IA: {e}")
+                    st.stop()
+        else:
+            st.warning("⚠️ Crédits épuisés. Rechargez pour découvrir les Pivots Stratégiques.")
+            st.link_button("💳 Recharger", LINK_RECHARGE, type="primary")
+            st.stop()
         
     st.markdown(st.session_state.project["pivots"])
     st.divider()
@@ -277,18 +283,27 @@ elif st.session_state.current_page == 3:
     st.info(f"Objectif : {tgt}")
     
     if not st.session_state.project["gps"]:
-        with st.status("🗺️ Calcul itinéraire...", expanded=True) as status:
-            st.write("📅 Définition des objectifs à 90 jours...")
-            time.sleep(1)
-            st.write("⚡ Identification des actions immédiates...")
-            try:
-                res = model.generate_content(f"Plan d'action opérationnel (GPS) pour: {tgt}").text
-                st.session_state.project["gps"] = res
-                status.update(label="✅ Itinéraire prêt !", state="complete", expanded=False)
-                st.rerun()
-            except Exception as e:
-                status.update(label="❌ Erreur", state="error")
-                st.error(f"Erreur IA: {e}")
+        # --- BLOCAGE SI PAS DE CRÉDIT ---
+        if credits > 0:
+            with st.status("🗺️ Calcul itinéraire...", expanded=True) as status:
+                st.write("📅 Définition des objectifs à 90 jours...")
+                time.sleep(1)
+                st.write("⚡ Identification des actions immédiates...")
+                try:
+                    res = model.generate_content(f"Plan d'action opérationnel (GPS) pour: {tgt}").text
+                    st.session_state.project["gps"] = res
+                    
+                    consume_credit() # <--- DÉBIT ICI
+                    
+                    status.update(label="✅ Itinéraire prêt !", state="complete", expanded=False)
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="❌ Erreur", state="error")
+                    st.error(f"Erreur IA: {e}")
+        else:
+            st.warning("⚠️ Crédits épuisés. Rechargez pour obtenir votre Plan d'Action Détaillé (GPS).")
+            st.link_button("💳 Recharger", LINK_RECHARGE, type="primary")
+            st.stop()
         
     st.markdown(st.session_state.project["gps"])
     st.divider()
