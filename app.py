@@ -16,7 +16,7 @@ try:
     KEY_SUPA = st.secrets["SUPABASE_KEY"]
     LINK_RECHARGE = st.secrets["LIEN_RECHARGE"]
     
-    # Vos codes Google Form (Ne pas toucher)
+    # Vos codes Google Form
     BASE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScKU17kIr4t_Wiwi6uTMd0a2CCUMtqOU0w_yEHb8uAXVfgCZw/viewform"
     ENTRY_EMAIL = "entry.121343077"
     ENTRY_IDEE  = "entry.1974870243"
@@ -41,18 +41,13 @@ if "project" not in st.session_state:
 # --- 3. FONCTIONS ---
 
 def login_user(email):
-    """
-    Gère la connexion avec UUID pour Make.
-    """
+    """Gère la connexion avec UUID pour Make."""
     email = str(email).strip().lower()
     try:
-        # 1. Recherche
         res = supabase.table("users").select("*").eq("email", email).execute()
         if res.data: return res.data[0]
         
-        # 2. Création (UUID pour éviter doublon access_code)
         unique_code = str(uuid.uuid4())
-        
         new = {
             "email": email, 
             "credits": 3, 
@@ -82,7 +77,6 @@ def generate_form_link():
     idee = st.session_state.project.get("idea", "")
     audit = st.session_state.project.get("analysis", "")[:1500]
     if len(st.session_state.project.get("analysis", "")) > 1500: audit += "..."
-    
     params = {ENTRY_EMAIL: email, ENTRY_IDEE: idee, ENTRY_AUDIT: audit}
     return f"{BASE_FORM_URL}?{urllib.parse.urlencode(params)}"
 
@@ -93,18 +87,22 @@ def reset_project():
 
 def load_json(uploaded_file):
     """
-    CORRECTION JSON : On rembobine le fichier avant lecture (seek(0)).
+    Charge le JSON et marque le fichier comme 'lu' pour éviter la boucle infinie.
     """
     try:
-        # L'ASTUCE EST ICI : On remet le curseur au début
         uploaded_file.seek(0)
-        
         data = json.load(uploaded_file)
+        
         clean_data = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
         clean_data.update(data.get("data", {}))
         
         st.session_state.project = clean_data
         st.session_state.current_page = 1
+        
+        # IMPORTANT : On enregistre la signature du fichier chargé
+        file_signature = f"{uploaded_file.name}_{uploaded_file.size}"
+        st.session_state.last_loaded_signature = file_signature
+        
         st.success("Chargé avec succès !")
         time.sleep(0.5)
         st.rerun()
@@ -155,17 +153,17 @@ with st.sidebar:
     st.divider()
     if st.button("✨ Nouvelle Analyse"): reset_project()
     
-    # SAUVEGARDE ET CHARGEMENT
+    # SAUVEGARDE
     json_str = json.dumps({"data": st.session_state.project}, indent=4)
-    st.download_button(
-        label="💾 Sauver JSON",
-        data=json_str,
-        file_name="projet_ia.json",
-        mime="application/json"
-    )
+    st.download_button("💾 Sauver JSON", json_str, "projet_ia.json", mime="application/json")
     
+    # CHARGEMENT INTELLIGENT (Anti-Boucle)
     up = st.file_uploader("📂 Charger JSON", type="json", key="json_uploader")
-    if up: load_json(up)
+    if up:
+        # On vérifie si ce fichier a DÉJÀ été chargé pour ne pas boucler
+        signature = f"{up.name}_{up.size}"
+        if st.session_state.get("last_loaded_signature") != signature:
+            load_json(up)
     
     if st.button("Déconnexion"):
         st.session_state.clear()
@@ -284,3 +282,4 @@ elif st.session_state.current_page == 3:
     st.divider()
     st.success("Terminé.")
     st.link_button("💎 Réserver Audit (Pré-rempli)", generate_form_link(), type="primary")
+    
