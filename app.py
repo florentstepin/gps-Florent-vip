@@ -187,13 +187,11 @@ if st.session_state.current_page == 1:
                         st.session_state.project_data["analysis"] = model.generate_content(f"Analyse critique: {n}").text
                         status.update(label="✅ Analyse terminée !", state="complete", expanded=False)
                     # ----------------
-                                st.session_state.project["analysis"] = res
-                                st.session_state.project["pivots"] = ""
-                                st.session_state.project["gps"] = ""
-                                consume_credit()
-                                st.rerun()
-                            except Exception as e: st.error(f"Erreur IA: {e}")
-                    else: st.error("Pas de crédit")
+                    st.session_state.project_data["pivots"] = ""
+                    st.session_state.project_data["gps"] = ""
+                    debiter_1_credit(user)
+                    st.rerun()
+                else: st.error("Solde nul")
     else:
         if credits > 0:
             idea_input = st.text_area("Votre idée :", height=150)
