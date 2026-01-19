@@ -25,8 +25,8 @@ try:
     supabase = create_client(URL_SUPA, KEY_SUPA)
     genai.configure(api_key=API_GOOGLE)
     
-    # Modèle stable (évite l'erreur 404)
-    model = genai.GenerativeModel('gemini-pro')
+    # Modèle stable 
+    model = genai.GenerativeModel('gemini-2.5-pro')
 
 except Exception as e:
     st.error(f"Erreur Config: {e}")
