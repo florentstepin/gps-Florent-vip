@@ -25,7 +25,7 @@ try:
     supabase = create_client(URL_SUPA, KEY_SUPA)
     genai.configure(api_key=API_GOOGLE)
     
-    # MOTEUR VALIDÉ
+    # MOTEUR VALIDÉ (2.5 PRO)
     model = genai.GenerativeModel('gemini-2.5-pro')
 
 except Exception as e:
@@ -86,11 +86,8 @@ def reset_project():
     st.rerun()
 
 def load_json(uploaded_file):
-    """
-    Charge le JSON et marque le fichier comme 'lu' pour éviter la boucle infinie.
-    """
     try:
-        uploaded_file.seek(0)
+        uploaded_file.seek(0) # Fix lecture unique
         data = json.load(uploaded_file)
         
         clean_data = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
@@ -99,15 +96,15 @@ def load_json(uploaded_file):
         st.session_state.project = clean_data
         st.session_state.current_page = 1
         
-        # IMPORTANT : On enregistre la signature du fichier chargé
+        # Signature anti-boucle
         file_signature = f"{uploaded_file.name}_{uploaded_file.size}"
         st.session_state.last_loaded_signature = file_signature
         
-        st.success("Chargé avec succès !")
+        st.success("Dossier chargé !")
         time.sleep(0.5)
         st.rerun()
     except Exception as e:
-        st.error(f"Erreur de lecture JSON : {e}")
+        st.error(f"Erreur JSON : {e}")
 
 # --- 4. LOGIN ---
 if not st.session_state.user:
@@ -153,14 +150,12 @@ with st.sidebar:
     st.divider()
     if st.button("✨ Nouvelle Analyse"): reset_project()
     
-    # SAUVEGARDE
+    # JSON
     json_str = json.dumps({"data": st.session_state.project}, indent=4)
     st.download_button("💾 Sauver JSON", json_str, "projet_ia.json", mime="application/json")
     
-    # CHARGEMENT INTELLIGENT (Anti-Boucle)
     up = st.file_uploader("📂 Charger JSON", type="json", key="json_uploader")
     if up:
-        # On vérifie si ce fichier a DÉJÀ été chargé pour ne pas boucler
         signature = f"{up.name}_{up.size}"
         if st.session_state.get("last_loaded_signature") != signature:
             load_json(up)
@@ -175,56 +170,67 @@ st.progress(st.session_state.current_page / 3)
 # PAGE 1 : ANALYSE
 if st.session_state.current_page == 1:
     st.subheader("1️⃣ Analyse Crash-Test")
+    
+    # 1.A - SI L'ANALYSE EXISTE DÉJÀ (Affichage résultat)
     if st.session_state.project["analysis"]:
         st.info(f"Sujet : {st.session_state.project['idea']}")
         st.markdown(st.session_state.project["analysis"])
+        
+        # Navigation manuelle UNIQUEMENT ici
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Aller aux Pivots ➡️", type="primary"):
                 st.session_state.current_page = 2
                 st.rerun()
         with c2:
-            with st.expander("Modifier (1 crédit)"):
+            with st.expander("Modifier et Relancer (1 crédit)"):
                 new_txt = st.text_area("Correction", value=st.session_state.project["idea"])
                 if st.button("Relancer"):
                     if credits > 0:
                         st.session_state.project["idea"] = new_txt
-                        with st.status("🕵️‍♂️ L'IA analyse...", expanded=True) as status:
-                            st.write("Analyse du contexte...")
+                        # THINKING
+                        with st.status("🕵️‍♂️ L'Avocat du Diable analyse...", expanded=True) as status:
+                            st.write("Analyse du contexte macro...")
                             time.sleep(1)
-                            st.write("Recherche des failles...")
+                            st.write("Recherche des failles critiques...")
                             time.sleep(1)
+                            st.write("Vérification des biais...")
                             try:
-                                res = model.generate_content(f"Analyse: {new_txt}").text
+                                res = model.generate_content(f"Analyse critique business (Avocat du Diable): {new_txt}").text
                                 st.session_state.project["analysis"] = res
-                                status.update(label="✅ Terminé !", state="complete", expanded=False)
+                                status.update(label="✅ Analyse terminée !", state="complete", expanded=False)
                                 
                                 st.session_state.project["pivots"] = ""
                                 st.session_state.project["gps"] = ""
                                 consume_credit()
-                                st.rerun()
+                                st.rerun() # Reste sur page 1 pour voir résultat
                             except Exception as e:
                                 status.update(label="❌ Erreur", state="error")
                                 st.error(f"Erreur IA: {e}")
                     else: st.error("Pas de crédit")
+
+    # 1.B - SI PAS D'ANALYSE (Formulaire)
     else:
         if credits > 0:
             idea_input = st.text_area("Votre idée :", height=150)
             if st.button("Lancer (1 crédit)", type="primary"):
                 if idea_input:
                     st.session_state.project["idea"] = idea_input
+                    # THINKING
                     with st.status("🧠 Activation Stratège IA...", expanded=True) as status:
                         st.write("Lecture de l'idée...")
                         time.sleep(0.5)
-                        st.write("Scan concurrentiel...")
+                        st.write("🔍 Scan des concurrents & Risques...")
                         time.sleep(1)
+                        st.write("⚖️ Pesée des arguments...")
                         try:
-                            res = model.generate_content(f"Analyse: {idea_input}").text
+                            res = model.generate_content(f"Analyse critique business (Avocat du Diable): {idea_input}").text
                             st.session_state.project["analysis"] = res
                             status.update(label="✅ Rapport généré !", state="complete", expanded=False)
                             
                             consume_credit()
-                            st.session_state.current_page = 2
+                            # IMPORTANT : PAS de changement de page automatique
+                            # On rerun pour afficher le résultat sur la page 1
                             st.rerun()
                         except Exception as e:
                              status.update(label="❌ Erreur", state="error")
@@ -234,14 +240,18 @@ if st.session_state.current_page == 1:
 # PAGE 2 : PIVOTS
 elif st.session_state.current_page == 2:
     st.subheader("2️⃣ Pivots Stratégiques")
+    
+    # Génération Auto si vide
     if not st.session_state.project["pivots"]:
+        # THINKING
         with st.status("💡 Recherche de Pivots...", expanded=True) as status:
-            st.write("Analyse des modèles...")
+            st.write("Analyse des modèles alternatifs...")
             time.sleep(1)
+            st.write("Exploration des marchés adjacents...")
             try:
-                res = model.generate_content(f"3 Pivots pour: {st.session_state.project['idea']}").text
+                res = model.generate_content(f"3 Pivots business créatifs pour: {st.session_state.project['idea']}").text
                 st.session_state.project["pivots"] = res
-                status.update(label="✅ Trouvé !", state="complete", expanded=False)
+                status.update(label="✅ Pivots trouvés !", state="complete", expanded=False)
                 st.rerun()
             except Exception as e:
                 status.update(label="❌ Erreur", state="error")
@@ -254,7 +264,7 @@ elif st.session_state.current_page == 2:
     cur = st.session_state.project.get("choice")
     idx = opts.index(cur) if cur in opts else 0
     choice = st.radio("Choix :", opts, index=idx)
-    if st.button("Valider ➡️", type="primary"):
+    if st.button("Valider et Voir le GPS ➡️", type="primary"):
         st.session_state.project["choice"] = choice
         st.session_state.project["gps"] = ""
         st.session_state.current_page = 3
@@ -265,14 +275,18 @@ elif st.session_state.current_page == 3:
     st.subheader("3️⃣ GPS")
     tgt = f"{st.session_state.project['idea']} ({st.session_state.project['choice']})"
     st.info(f"Objectif : {tgt}")
+    
+    # Génération Auto si vide
     if not st.session_state.project["gps"]:
+        # THINKING
         with st.status("🗺️ Calcul itinéraire...", expanded=True) as status:
-            st.write("Définition des étapes...")
+            st.write("Définition des étapes clés...")
             time.sleep(1)
+            st.write("Optimisation des ressources...")
             try:
-                res = model.generate_content(f"Plan d'action: {tgt}").text
+                res = model.generate_content(f"Plan d'action opérationnel (GPS) pour: {tgt}").text
                 st.session_state.project["gps"] = res
-                status.update(label="✅ Prêt !", state="complete", expanded=False)
+                status.update(label="✅ Itinéraire prêt !", state="complete", expanded=False)
                 st.rerun()
             except Exception as e:
                 status.update(label="❌ Erreur", state="error")
@@ -282,4 +296,3 @@ elif st.session_state.current_page == 3:
     st.divider()
     st.success("Terminé.")
     st.link_button("💎 Réserver Audit (Pré-rempli)", generate_form_link(), type="primary")
-    
