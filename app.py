@@ -50,7 +50,7 @@ def login_user(email):
         unique_code = str(uuid.uuid4())
         new = {
             "email": email, 
-            "credits": 3, 
+            "credits": 2, # <--- MODIFICATION STRATÉGIQUE : 2 CRÉDITS (Analyse + Pivots offerts, GPS payant)
             "access_code": unique_code 
         }
         res = supabase.table("users").insert(new).execute()
@@ -235,15 +235,15 @@ if st.session_state.current_page == 1:
 elif st.session_state.current_page == 2:
     st.subheader("2️⃣ Pivots Stratégiques")
     
-    # RAPPEL DU CONTEXTE (Optionnel mais sympa)
+    # RAPPEL DU CONTEXTE
     if st.session_state.project["idea"]:
         st.info(f"📌 Projet : {st.session_state.project['idea']}")
     
-    # LOGIQUE "THINKING" RESTAURÉE (Version Longue)
+    # ANIMATION RENFORCÉE (Version Longue Validée)
     if not st.session_state.project["pivots"]:
         with st.status("💡 Recherche de Pivots en cours...", expanded=True) as status:
             st.write("🔄 Analyse des Business Models alternatifs...")
-            time.sleep(1.5) # Temps de lecture (Comme dans votre version qui marchait)
+            time.sleep(1.5) # Temps de lecture long
             st.write("🚀 Brainstorming des stratégies de scalabilité...")
             time.sleep(1.5)
             st.write("✍️ Formalisation des 3 options...")
