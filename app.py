@@ -177,7 +177,16 @@ if st.session_state.current_page == 1:
                 if st.button("Relancer"):
                     if credits > 0:
                         st.session_state.project["idea"] = new_txt
-                        with st.spinner("Analyse..."):
+                         # THINKING PHASE 1
+                    with st.status("🕵️‍♂️ L'IA analyse votre projet...", expanded=True) as status:
+                        st.write("Analyse du contexte macro-économique...")
+                        time.sleep(1)
+                        st.write("Recherche des failles de marché...")
+                        time.sleep(1)
+                        st.write("Vérification des biais cognitifs...")
+                        st.session_state.project_data["analysis"] = model.generate_content(f"Analyse critique: {n}").text
+                        status.update(label="✅ Analyse terminée !", state="complete", expanded=False)
+                    # ----------------
                             try:
                                 res = model.generate_content(f"Analyse: {new_txt}").text
                                 st.session_state.project["analysis"] = res
@@ -193,7 +202,18 @@ if st.session_state.current_page == 1:
             if st.button("Lancer (1 crédit)", type="primary"):
                 if idea_input:
                     st.session_state.project["idea"] = idea_input
-                    with st.spinner("Analyse..."):
+                   # THINKING INITIAL
+                    with st.status("🧠 Activation du Stratège IA...", expanded=True) as status:
+                        st.write("Lecture de votre idée...")
+                        time.sleep(0.5)
+                        st.write("🔍 Scan des concurrents potentiels...")
+                        time.sleep(1)
+                        st.write("⚖️ Pesée des risques et opportunités...")
+                        time.sleep(1)
+                        st.write("📝 Rédaction du rapport...")
+                        st.session_state.project_data["analysis"] = model.generate_content(f"Analyse critique: {t}").text
+                        status.update(label="✅ Rapport généré !", state="complete", expanded=False)
+                    # ----------------
                         try:
                             res = model.generate_content(f"Analyse: {idea_input}").text
                             st.session_state.project["analysis"] = res
@@ -207,7 +227,19 @@ if st.session_state.current_page == 1:
 elif st.session_state.current_page == 2:
     st.subheader("2️⃣ Pivots Stratégiques")
     if not st.session_state.project["pivots"]:
-        with st.spinner("Recherche..."):
+    # THINKING PHASE 2 (Renforcé)
+        with st.status("💡 Recherche de Pivots en cours...", expanded=True) as status:
+            st.write("🔄 Analyse des Business Models alternatifs...")
+            time.sleep(1.5) # Temps de lecture
+            st.write("🚀 Brainstorming des stratégies de scalabilité...")
+            time.sleep(1.5)
+            st.write("✍️ Formalisation des 3 options...")
+            res = model.generate_content(f"3 Pivots pour: {st.session_state.project_data['idea']}").text
+            st.session_state.project_data["pivots"] = res
+            status.update(label="✅ 3 Stratégies trouvées !", state="complete", expanded=False)
+        st.rerun()
+        # ----------------
+   
             try:
                 res = model.generate_content(f"3 Pivots pour: {st.session_state.project['idea']}").text
                 st.session_state.project["pivots"] = res
@@ -233,7 +265,18 @@ elif st.session_state.current_page == 3:
     tgt = f"{st.session_state.project['idea']} ({st.session_state.project['choice']})"
     st.info(f"Objectif : {tgt}")
     if not st.session_state.project["gps"]:
-        with st.spinner("Calcul..."):
+     # THINKING PHASE 3
+            with st.status("🗺️ Calcul de l'itinéraire...", expanded=True) as status:
+                st.write("📅 Définition des objectifs à 90 jours...")
+                time.sleep(1)
+                st.write("🔨 Découpage en tâches hebdomadaires...")
+                time.sleep(1)
+                st.write("⚡ Identification des actions immédiates...")
+                res = model.generate_content(f"Plan d'action COO: {f_sub}").text
+                st.session_state.project_data["gps"] = res
+                status.update(label="✅ Itinéraire prêt !", state="complete", expanded=False)
+            st.rerun()
+   
             try:
                 res = model.generate_content(f"Plan d'action: {tgt}").text
                 st.session_state.project["gps"] = res
