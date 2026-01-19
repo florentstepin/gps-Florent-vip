@@ -231,11 +231,7 @@ elif st.session_state.current_page == 2:
             status.update(label="✅ 3 Stratégies trouvées !", state="complete", expanded=False)
         st.rerun()
         # ----------------
-                st.session_state.project["pivots"] = res
-                st.rerun()
-            except Exception as e: 
-                st.error(f"Erreur IA: {e}")
-                st.stop()
+
     st.markdown(st.session_state.project["pivots"])
     st.divider()
     opts = ["Idée Initiale", "Pivot 1", "Pivot 2", "Pivot 3"]
