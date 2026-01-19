@@ -213,7 +213,6 @@ if st.session_state.current_page == 1:
                     st.session_state.step_unlocked = 2
                     debiter_1_credit(user)
                     st.rerun()
-                        except Exception as e: st.error(f"Erreur IA: {e}")
         else: st.warning("Rechargez vos crédits")
 
 # PAGE 2
