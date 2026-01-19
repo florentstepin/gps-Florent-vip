@@ -187,7 +187,6 @@ if st.session_state.current_page == 1:
                         st.session_state.project_data["analysis"] = model.generate_content(f"Analyse critique: {n}").text
                         status.update(label="✅ Analyse terminée !", state="complete", expanded=False)
                     # ----------------
-                            try:
                                 res = model.generate_content(f"Analyse: {new_txt}").text
                                 st.session_state.project["analysis"] = res
                                 st.session_state.project["pivots"] = ""
