@@ -42,22 +42,21 @@ if "project" not in st.session_state:
 
 # --- 3. FONCTIONS ---
 
-def login_user(entree_utilisateur):
-    """Gère la connexion avec UUID pour Make."""
-    # ON RENOMME LA VARIABLE POUR FORCER LA VRAIE VALEUR
-    vrai_email = str(entree_utilisateur).strip().lower()
+def login_user(email_recu):
+    """Fonction blindée : force l'utilisation de la saisie réelle"""
+    # On force la conversion en string propre
+    email_propre = str(email_recu).strip().lower()
     
     try:
-        # 1. On cherche avec la variable renommee
-        res = supabase.table("users").select("*").eq("email", vrai_email).execute()
+        # A. Vérification existant
+        res = supabase.table("users").select("*").eq("email", email_propre).execute()
         if res.data: return res.data[0]
         
-        # 2. Création
+        # B. Création
         unique_code = str(uuid.uuid4())
         
-        # 3. L'objet à insérer
         new = {
-            "email": vrai_email, # <--- ICI : Impossible que ce soit le mot "email"
+            "email": email_propre,  # <--- Utilise la variable nettoyée
             "credits": 2, 
             "access_code": unique_code 
         }
@@ -65,9 +64,9 @@ def login_user(entree_utilisateur):
         if res.data: return res.data[0]
         
     except Exception as e:
-        # Filet de sécurité avec la variable renommee
+        # Filet de sécurité
         try:
-            res = supabase.table("users").select("*").eq("email", vrai_email).execute()
+            res = supabase.table("users").select("*").eq("email", email_propre).execute()
             if res.data: return res.data[0]
         except: 
             st.error(f"Erreur Login: {e}")
@@ -82,44 +81,25 @@ def consume_credit():
         st.session_state.user['credits'] = new_val
 
 def clean_markdown(text):
-    """
-    Nettoie le texte IA pour qu'il soit lisible dans Excel.
-    Enlève les **, ##, et reformate les listes.
-    """
     if not text: return ""
-    # Enlève les caractères gras/italiques Markdown (** ou *)
     text = re.sub(r'\*\*|__', '', text)
-    # Enlève les titres Markdown (###)
     text = re.sub(r'#+', '', text)
-    # Remplace les puces Markdown par des tirets simples
     text = re.sub(r'^\s*[\-\*]\s+', '- ', text, flags=re.MULTILINE)
     return text.strip()
 
 def generate_form_link():
-    """Génère un lien propre et optimisé pour Excel"""
     if not st.session_state.user: return BASE_FORM_URL
-    
     email = st.session_state.user['email']
     idee = st.session_state.project.get("idea", "")
     note_client = st.session_state.user_note
     raw_audit = st.session_state.project.get("analysis", "")
-    
-    # 1. Nettoyage du Markdown
     clean_audit = clean_markdown(raw_audit)
     
-    # 2. Construction du contenu structuré pour Excel
-    # On limite la taille totale pour éviter que le lien ne casse (max ~1500 chars conseillé)
-    final_content = f"--- PROJET CLIENT ---\n{idee}\n\n"
-    if note_client:
-        final_content += f"--- NOTE DU CLIENT ---\n{note_client}\n\n"
+    final_content = f"--- PROJET ---\n{idee}\n\n"
+    if note_client: final_content += f"--- NOTE ---\n{note_client}\n\n"
+    final_content += f"--- AUDIT ---\n{clean_audit[:1200]}..."
     
-    final_content += f"--- AUDIT IA (EXTRAIT) ---\n{clean_audit[:1200]}..." # Tronqué propre
-    
-    params = {
-        ENTRY_EMAIL: email, 
-        ENTRY_IDEE: idee, # On garde l'idée brute dans sa colonne
-        ENTRY_AUDIT: final_content # Colonne Audit optimisée Excel
-    }
+    params = {ENTRY_EMAIL: email, ENTRY_IDEE: idee, ENTRY_AUDIT: final_content}
     return f"{BASE_FORM_URL}?{urllib.parse.urlencode(params)}"
 
 def reset_project():
@@ -137,7 +117,7 @@ def load_json(uploaded_file):
         st.session_state.project = clean_data
         st.session_state.current_page = 1
         st.session_state.last_loaded_signature = f"{uploaded_file.name}_{uploaded_file.size}"
-        st.success("Dossier chargé !")
+        st.success("Chargé !")
         time.sleep(0.5)
         st.rerun()
     except Exception as e:
@@ -149,10 +129,14 @@ if not st.session_state.user:
     with c2:
         if os.path.exists("logo.png"): st.image("logo.png", width=200)
         else: st.title("🚀 Stratège IA")
-        email_in = st.text_input("Email Professionnel")
+        
+        # CHAMP DE SAISIE
+        saisie_utilisateur = st.text_input("Email Professionnel")
+        
         if st.button("Connexion", use_container_width=True):
-            if "@" in email_in:
-                u = login_user(email_in)
+            if "@" in saisie_utilisateur:
+                # APPEL DE LA FONCTION AVEC LA VARIABLE DE SAISIE
+                u = login_user(saisie_utilisateur)
                 if u:
                     st.session_state.user = u
                     st.rerun()
