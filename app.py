@@ -9,7 +9,7 @@ import uuid # VITAL POUR MAKE
 import re   # <--- NOUVEAU : Pour nettoyer le texte (Regex)
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Stratège IA V2", page_icon="🔴", layout="wide")
+st.set_page_config(page_title="Stratège IA", page_icon="🎯", layout="wide")
 
 try:
     API_GOOGLE = st.secrets["GOOGLE_API_KEY"]
@@ -42,70 +42,24 @@ if "project" not in st.session_state:
 
 # --- 3. FONCTIONS ---
 
-def login_user(email_recu):
-    """Fonction avec MOUCHARDS pour piéger le bug"""
-    
-    # 1. Nettoyage
-    email_propre = str(email_recu).strip().lower()
-    
-    # --- 🕵️‍♂️ MOUCHARD N°1 : Ce que Python a reçu ---
-    st.error(f"🛑 MOUCHARD 1 : J'ai reçu du champ texte -> {email_propre}")
-    
+def login_user(email):
+    """Gère la connexion avec UUID pour Make."""
+    email = str(email).strip().lower()
     try:
-        # A. Vérification
-        res = supabase.table("users").select("*").eq("email", email_propre).execute()
-        if res.data: 
-            st.success("Utilisateur trouvé en base !")
-            return res.data[0]
-        
-        # B. Création
-        unique_code = str(uuid.uuid4())
-        
-        new = {
-            "email": email_propre, 
-            "credits": 2, 
-            "access_code": unique_code 
-        }
-        
-        # --- 🕵️‍♂️ MOUCHARD N°2 : Ce que Python envoie à Supabase ---
-        st.info(f"📤 MOUCHARD 2 : J'envoie ce paquet à Supabase -> {new}")
-        
-        res = supabase.table("users").insert(new).execute()
-        
-        if res.data: 
-            st.balloons() # Si ça marche, ballons !
-            return res.data[0]
-        
-    except Exception as e:
-        # Filet de sécurité
-        st.error(f"ERREUR CRITIQUE : {e}")
-        try:
-            res = supabase.table("users").select("*").eq("email", email_propre).execute()
-            if res.data: return res.data[0]
-        except: 
-            pass
-    return None
-    
-    try:
-        # A. Vérification existant
-        res = supabase.table("users").select("*").eq("email", email_propre).execute()
+        res = supabase.table("users").select("*").eq("email", email).execute()
         if res.data: return res.data[0]
         
-        # B. Création
         unique_code = str(uuid.uuid4())
-        
         new = {
-            "email": email_propre,  # <--- Utilise la variable nettoyée
-            "credits": 2, 
+            "email": email, 
+            "credits": 2, # Stratégie 2 crédits
             "access_code": unique_code 
         }
         res = supabase.table("users").insert(new).execute()
         if res.data: return res.data[0]
-        
     except Exception as e:
-        # Filet de sécurité
         try:
-            res = supabase.table("users").select("*").eq("email", email_propre).execute()
+            res = supabase.table("users").select("*").eq("email", email).execute()
             if res.data: return res.data[0]
         except: 
             st.error(f"Erreur Login: {e}")
@@ -120,25 +74,44 @@ def consume_credit():
         st.session_state.user['credits'] = new_val
 
 def clean_markdown(text):
+    """
+    Nettoie le texte IA pour qu'il soit lisible dans Excel.
+    Enlève les **, ##, et reformate les listes.
+    """
     if not text: return ""
+    # Enlève les caractères gras/italiques Markdown (** ou *)
     text = re.sub(r'\*\*|__', '', text)
+    # Enlève les titres Markdown (###)
     text = re.sub(r'#+', '', text)
+    # Remplace les puces Markdown par des tirets simples
     text = re.sub(r'^\s*[\-\*]\s+', '- ', text, flags=re.MULTILINE)
     return text.strip()
 
 def generate_form_link():
+    """Génère un lien propre et optimisé pour Excel"""
     if not st.session_state.user: return BASE_FORM_URL
+    
     email = st.session_state.user['email']
     idee = st.session_state.project.get("idea", "")
     note_client = st.session_state.user_note
     raw_audit = st.session_state.project.get("analysis", "")
+    
+    # 1. Nettoyage du Markdown
     clean_audit = clean_markdown(raw_audit)
     
-    final_content = f"--- PROJET ---\n{idee}\n\n"
-    if note_client: final_content += f"--- NOTE ---\n{note_client}\n\n"
-    final_content += f"--- AUDIT ---\n{clean_audit[:1200]}..."
+    # 2. Construction du contenu structuré pour Excel
+    # On limite la taille totale pour éviter que le lien ne casse (max ~1500 chars conseillé)
+    final_content = f"--- PROJET CLIENT ---\n{idee}\n\n"
+    if note_client:
+        final_content += f"--- NOTE DU CLIENT ---\n{note_client}\n\n"
     
-    params = {ENTRY_EMAIL: email, ENTRY_IDEE: idee, ENTRY_AUDIT: final_content}
+    final_content += f"--- AUDIT IA (EXTRAIT) ---\n{clean_audit[:1200]}..." # Tronqué propre
+    
+    params = {
+        ENTRY_EMAIL: email, 
+        ENTRY_IDEE: idee, # On garde l'idée brute dans sa colonne
+        ENTRY_AUDIT: final_content # Colonne Audit optimisée Excel
+    }
     return f"{BASE_FORM_URL}?{urllib.parse.urlencode(params)}"
 
 def reset_project():
@@ -156,7 +129,7 @@ def load_json(uploaded_file):
         st.session_state.project = clean_data
         st.session_state.current_page = 1
         st.session_state.last_loaded_signature = f"{uploaded_file.name}_{uploaded_file.size}"
-        st.success("Chargé !")
+        st.success("Dossier chargé !")
         time.sleep(0.5)
         st.rerun()
     except Exception as e:
@@ -168,14 +141,10 @@ if not st.session_state.user:
     with c2:
         if os.path.exists("logo.png"): st.image("logo.png", width=200)
         else: st.title("🚀 Stratège IA")
-        
-        # CHAMP DE SAISIE
-        saisie_utilisateur = st.text_input("Email Professionnel")
-        
+        email_in = st.text_input("Email Professionnel")
         if st.button("Connexion", use_container_width=True):
-            if "@" in saisie_utilisateur:
-                # APPEL DE LA FONCTION AVEC LA VARIABLE DE SAISIE
-                u = login_user(saisie_utilisateur)
+            if "@" in email_in:
+                u = login_user(email_in)
                 if u:
                     st.session_state.user = u
                     st.rerun()
