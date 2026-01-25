@@ -9,7 +9,7 @@ import uuid # VITAL POUR MAKE
 import re   # <--- NOUVEAU : Pour nettoyer le texte (Regex)
 
 # --- 1. CONFIGURATION ---
-st.set_page_config(page_title="Stratège IA", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="Stratège IA V2", page_icon="🔴", layout="wide")
 
 try:
     API_GOOGLE = st.secrets["GOOGLE_API_KEY"]
