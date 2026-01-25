@@ -5,7 +5,8 @@ import json
 import time
 import os
 import urllib.parse
-import re
+import uuid # VITAL POUR MAKE
+import re   # <--- NOUVEAU : Pour nettoyer le texte (Regex)
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Stratège IA", page_icon="🎯", layout="wide")
@@ -25,63 +26,43 @@ try:
     supabase = create_client(URL_SUPA, KEY_SUPA)
     genai.configure(api_key=API_GOOGLE)
     
-    # MOTEUR (Thinking)
-    model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-1219') 
+    # MOTEUR VALIDÉ (2.5 PRO)
+    model = genai.GenerativeModel('gemini-2.5-pro')
 
 except Exception as e:
     st.error(f"Erreur Config: {e}")
     st.stop()
 
-# --- 2. INITIALISATION & PARRAINAGE ---
+# --- 2. INITIALISATION ---
 if "user" not in st.session_state: st.session_state.user = None
 if "current_page" not in st.session_state: st.session_state.current_page = 1
-if "user_note" not in st.session_state: st.session_state.user_note = ""
+if "user_note" not in st.session_state: st.session_state.user_note = "" # Stockage note client
 if "project" not in st.session_state:
     st.session_state.project = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
 
-# Gestion des paramètres URL (Parrainage & Retour Email)
-# On capture le parrain AVANT tout le reste
-qp = st.query_params
-if "ref" in qp:
-    st.session_state["referral_code"] = qp["ref"]
-
 # --- 3. FONCTIONS ---
 
-def get_or_create_user(email):
-    """Vérifie l'utilisateur dans la DB publique après le clic email"""
+def login_user(email):
+    """Gère la connexion avec UUID pour Make."""
     email = str(email).strip().lower()
     try:
-        # 1. On cherche l'utilisateur
         res = supabase.table("users").select("*").eq("email", email).execute()
-        if res.data:
-            return res.data[0] # Il existe déjà
-        
-        # 2. Il n'existe pas : CRÉATION (C'est ici qu'on applique le parrainage)
-        new_credits = 2 # Crédits de base
-        
-        # Si un code parrain est en mémoire
-        if "referral_code" in st.session_state:
-            parrain_email = st.session_state["referral_code"]
-            # On crédite le PARRAIN (+2 crédits)
-            try:
-                # Récupère crédits actuels du parrain
-                p_data = supabase.table("users").select("credits").eq("email", parrain_email).execute()
-                if p_data.data:
-                    current_p_credits = p_data.data[0]['credits']
-                    supabase.table("users").update({"credits": current_p_credits + 2}).eq("email", parrain_email).execute()
-            except:
-                pass # Ne pas bloquer si erreur parrain
-        
-        # On crée le FILLEUL
-        new_user = {
-            "email": email, 
-            "credits": new_credits
-        }
-        res = supabase.table("users").insert(new_user).execute()
         if res.data: return res.data[0]
-
+        
+        unique_code = str(uuid.uuid4())
+        new = {
+            "email": email, 
+            "credits": 2, # Stratégie 2 crédits
+            "access_code": unique_code 
+        }
+        res = supabase.table("users").insert(new).execute()
+        if res.data: return res.data[0]
     except Exception as e:
-        st.error(f"Erreur DB: {e}")
+        try:
+            res = supabase.table("users").select("*").eq("email", email).execute()
+            if res.data: return res.data[0]
+        except: 
+            st.error(f"Erreur Login: {e}")
     return None
 
 def consume_credit():
@@ -93,25 +74,44 @@ def consume_credit():
         st.session_state.user['credits'] = new_val
 
 def clean_markdown(text):
+    """
+    Nettoie le texte IA pour qu'il soit lisible dans Excel.
+    Enlève les **, ##, et reformate les listes.
+    """
     if not text: return ""
+    # Enlève les caractères gras/italiques Markdown (** ou *)
     text = re.sub(r'\*\*|__', '', text)
+    # Enlève les titres Markdown (###)
     text = re.sub(r'#+', '', text)
+    # Remplace les puces Markdown par des tirets simples
     text = re.sub(r'^\s*[\-\*]\s+', '- ', text, flags=re.MULTILINE)
     return text.strip()
 
 def generate_form_link():
+    """Génère un lien propre et optimisé pour Excel"""
     if not st.session_state.user: return BASE_FORM_URL
+    
     email = st.session_state.user['email']
     idee = st.session_state.project.get("idea", "")
     note_client = st.session_state.user_note
     raw_audit = st.session_state.project.get("analysis", "")
+    
+    # 1. Nettoyage du Markdown
     clean_audit = clean_markdown(raw_audit)
     
-    final_content = f"--- PROJET ---\n{idee}\n\n"
-    if note_client: final_content += f"--- NOTE ---\n{note_client}\n\n"
-    final_content += f"--- AUDIT ---\n{clean_audit[:1200]}..."
+    # 2. Construction du contenu structuré pour Excel
+    # On limite la taille totale pour éviter que le lien ne casse (max ~1500 chars conseillé)
+    final_content = f"--- PROJET CLIENT ---\n{idee}\n\n"
+    if note_client:
+        final_content += f"--- NOTE DU CLIENT ---\n{note_client}\n\n"
     
-    params = {ENTRY_EMAIL: email, ENTRY_IDEE: idee, ENTRY_AUDIT: final_content}
+    final_content += f"--- AUDIT IA (EXTRAIT) ---\n{clean_audit[:1200]}..." # Tronqué propre
+    
+    params = {
+        ENTRY_EMAIL: email, 
+        ENTRY_IDEE: idee, # On garde l'idée brute dans sa colonne
+        ENTRY_AUDIT: final_content # Colonne Audit optimisée Excel
+    }
     return f"{BASE_FORM_URL}?{urllib.parse.urlencode(params)}"
 
 def reset_project():
@@ -129,89 +129,220 @@ def load_json(uploaded_file):
         st.session_state.project = clean_data
         st.session_state.current_page = 1
         st.session_state.last_loaded_signature = f"{uploaded_file.name}_{uploaded_file.size}"
-        st.success("Chargé !")
+        st.success("Dossier chargé !")
         time.sleep(0.5)
         st.rerun()
     except Exception as e:
         st.error(f"Erreur JSON : {e}")
 
-# --- 4. SYSTEME DE LOGIN (Magic Link) ---
+# --- 4. LOGIN ---
 if not st.session_state.user:
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         if os.path.exists("logo.png"): st.image("logo.png", width=200)
         else: st.title("🚀 Stratège IA")
-        
-        # A. Gestion du RETOUR EMAIL (Token dans l'URL)
-        # Streamlit capture le token automatiquement dans l'URL après le clic email
-        # On tente de récupérer la session
-        session = supabase.auth.get_session()
-        
-        if session:
-            # L'utilisateur a cliqué sur le lien email !
-            user_email = session.user.email
-            # On synchronise avec notre table 'users' publique pour les crédits
-            db_user = get_or_create_user(user_email)
-            if db_user:
-                st.session_state.user = db_user
-                st.success("Connexion réussie !")
-                time.sleep(1)
-                st.rerun()
-        
-        # B. Formulaire de Connexion Classique
-        st.write("Connectez-vous pour accéder à vos crédits.")
-        email_in = st.text_input("Votre Email")
-        
-        if st.button("Recevoir mon lien magique ✨", use_container_width=True):
+        email_in = st.text_input("Email Professionnel")
+        if st.button("Connexion", use_container_width=True):
             if "@" in email_in:
-                try:
-                    # C'EST ICI LA CLÉ : On utilise l'auth Supabase, pas l'insert direct
-                    # Le redirect_to est crucial pour revenir sur l'app
-                    APP_URL = "https://stratege-ia.streamlit.app" # REMPLACER PAR VOTRE URL EXACTE
-                    res = supabase.auth.sign_in_with_otp({
-                        "email": email_in,
-                        "options": {"email_redirect_to": APP_URL}
-                    })
-                    st.success("Checkez vos emails ! Un lien magique arrive.")
-                    st.info("Pensez à vérifier les Spams.")
-                except Exception as e:
-                    st.error(f"Erreur envoi : {e}")
-            else:
-                st.warning("Email invalide")
-                
+                u = login_user(email_in)
+                if u:
+                    st.session_state.user = u
+                    st.rerun()
+            else: st.warning("Email invalide")
     st.stop()
 
-# --- 5. APPLICATION PRINCIPALE ---
-# (Le reste du code reste identique, l'utilisateur est connecté)
+# --- 5. APP ---
 user = st.session_state.user
 credits = user.get("credits", 0)
 
 with st.sidebar:
     if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
     st.write(f"👤 **{user['email']}**")
-    
-    # --- AJOUT PARRAINAGE ---
-    st.divider()
-    my_ref_link = f"https://stratege-ia.streamlit.app?ref={user['email']}"
-    st.write("🎁 **Gagnez des crédits !**")
-    st.write("Invitez un ami : vous recevez +2 crédits chacun.")
-    st.text_input("Votre lien parrain :", value=my_ref_link, disabled=True)
-    # ------------------------
-
     if credits > 0: st.metric("Crédits", credits)
     else: 
         st.error("0 Crédits")
         st.link_button("Recharger", LINK_RECHARGE, type="primary")
     
     st.divider()
-    # ... (Le reste de votre sidebar identique)
-    # Copiez-collez la suite de votre code original ici à partir de "st.info('💎 **Expert Humain**')"
-    # Jusqu'à la fin du fichier.
+    st.info("💎 **Expert Humain**")
     
-    # ... Pour éviter de rendre la réponse trop longue, je vous laisse recoller la partie "APP" (Ligne 155 à la fin)
-    # car elle n'avait pas d'erreur.
+    # --- INPUT DE QUALIFICATION ---
+    st.write("Une précision pour l'expert ?")
+    st.session_state.user_note = st.text_area("Note optionnelle", 
+                                              value=st.session_state.user_note, 
+                                              height=70, 
+                                              placeholder="Ex: Mon budget est de...",
+                                              label_visibility="collapsed")
     
-    # NOTE IMPORTANTE :
-    # Assurez-vous juste de bien indenter le reste du code sous le "else" ou hors du "if not user".
-    # Dans ma structure ci-dessus, le "st.stop()" ligne 185 arrête le script si pas connecté.
-    # Donc tout le code de l'app (Page 1, 2, 3) peut être collé directement à la suite sans indentation supplémentaire.
+    # Le lien intègre maintenant la note et le texte nettoyé
+    st.link_button("Réserver Audit (Pré-rempli)", generate_form_link(), type="primary", use_container_width=True)
+    # ------------------------------
+
+    st.divider()
+    st.write("### 🧭 Navigation")
+    if st.button("1. Analyse"): 
+        st.session_state.current_page = 1
+        st.rerun()
+    if st.session_state.project["analysis"] and st.button("2. Pivots"): 
+        st.session_state.current_page = 2
+        st.rerun()
+    if st.session_state.project["pivots"] and st.button("3. GPS"): 
+        st.session_state.current_page = 3
+        st.rerun()
+    st.divider()
+    if st.button("✨ Nouvelle Analyse"): reset_project()
+    
+    # JSON
+    json_str = json.dumps({"data": st.session_state.project}, indent=4)
+    st.download_button("💾 Sauver JSON", json_str, "projet_ia.json", mime="application/json")
+    
+    up = st.file_uploader("📂 Charger JSON", type="json", key="json_uploader")
+    if up:
+        signature = f"{up.name}_{up.size}"
+        if st.session_state.get("last_loaded_signature") != signature:
+            with st.spinner("Patientez pendant le téléchargement de votre dossier..."):
+                load_json(up)
+    
+    if st.button("Déconnexion"):
+        st.session_state.clear()
+        st.rerun()
+
+st.title("🧠 Stratège IA")
+st.progress(st.session_state.current_page / 3)
+
+# PAGE 1 : ANALYSE
+if st.session_state.current_page == 1:
+    st.subheader("1️⃣ Analyse Crash-Test")
+    
+    if st.session_state.project["analysis"]:
+        st.info(f"Sujet : {st.session_state.project['idea']}")
+        st.markdown(st.session_state.project["analysis"])
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("Aller aux Pivots ➡️", type="primary"):
+                st.session_state.current_page = 2
+                st.rerun()
+        with c2:
+            with st.expander("Modifier et Relancer (1 crédit)"):
+                new_txt = st.text_area("Correction", value=st.session_state.project["idea"])
+                if st.button("Relancer"):
+                    if credits > 0:
+                        st.session_state.project["idea"] = new_txt
+                        with st.status("🕵️‍♂️ L'Avocat du Diable analyse...", expanded=True) as status:
+                            st.write("Analyse du contexte macro...")
+                            time.sleep(1)
+                            st.write("Recherche des failles critiques...")
+                            time.sleep(1)
+                            st.write("Vérification des biais...")
+                            try:
+                                res = model.generate_content(f"Analyse critique business (Avocat du Diable): {new_txt}").text
+                                st.session_state.project["analysis"] = res
+                                status.update(label="✅ Analyse terminée !", state="complete", expanded=False)
+                                
+                                st.session_state.project["pivots"] = ""
+                                st.session_state.project["gps"] = ""
+                                consume_credit()
+                                st.rerun() 
+                            except Exception as e:
+                                status.update(label="❌ Erreur", state="error")
+                                st.error(f"Erreur IA: {e}")
+                    else: st.error("Pas de crédit")
+
+    else:
+        if credits > 0:
+            idea_input = st.text_area("Votre idée :", height=150)
+            if st.button("Lancer (1 crédit)", type="primary"):
+                if idea_input:
+                    st.session_state.project["idea"] = idea_input
+                    with st.status("🧠 Activation Stratège IA...", expanded=True) as status:
+                        st.write("Lecture de l'idée...")
+                        time.sleep(0.5)
+                        st.write("Scan des concurrents & Risques...")
+                        time.sleep(1)
+                        st.write("⚖️ Pesée des arguments...")
+                        try:
+                            res = model.generate_content(f"Analyse critique business (Avocat du Diable): {idea_input}").text
+                            st.session_state.project["analysis"] = res
+                            status.update(label="✅ Rapport généré !", state="complete", expanded=False)
+                            
+                            consume_credit()
+                            st.rerun()
+                        except Exception as e:
+                             status.update(label="❌ Erreur", state="error")
+                             st.error(f"Erreur IA: {e}")
+        else: st.warning("Rechargez vos crédits")
+
+# PAGE 2 : PIVOTS
+elif st.session_state.current_page == 2:
+    st.subheader("2️⃣ Pivots Stratégiques")
+    
+    if st.session_state.project["idea"]:
+        st.info(f"📌 Projet : {st.session_state.project['idea']}")
+    
+    if not st.session_state.project["pivots"]:
+        if credits > 0: 
+            with st.status("💡 Recherche de Pivots en cours...", expanded=True) as status:
+                st.write("🔄 Analyse des Business Models alternatifs...")
+                time.sleep(1.5)
+                st.write("🚀 Brainstorming des stratégies de scalabilité...")
+                time.sleep(1.5)
+                st.write("✍️ Formalisation des 3 options...")
+                
+                try:
+                    res = model.generate_content(f"3 Pivots business créatifs pour: {st.session_state.project['idea']}").text
+                    st.session_state.project["pivots"] = res
+                    consume_credit()
+                    status.update(label="✅ 3 Stratégies trouvées !", state="complete", expanded=False)
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="❌ Erreur", state="error")
+                    st.error(f"Erreur IA: {e}")
+                    st.stop()
+        else:
+            st.warning("⚠️ Crédits épuisés. Rechargez pour découvrir les Pivots Stratégiques.")
+            st.link_button("💳 Recharger", LINK_RECHARGE, type="primary")
+            st.stop()
+        
+    st.markdown(st.session_state.project["pivots"])
+    st.divider()
+    opts = ["Idée Initiale", "Pivot 1", "Pivot 2", "Pivot 3"]
+    cur = st.session_state.project.get("choice")
+    idx = opts.index(cur) if cur in opts else 0
+    choice = st.radio("Choix :", opts, index=idx)
+    if st.button("Valider et Voir le GPS ➡️", type="primary"):
+        st.session_state.project["choice"] = choice
+        st.session_state.project["gps"] = ""
+        st.session_state.current_page = 3
+        st.rerun()
+
+# PAGE 3 : GPS
+elif st.session_state.current_page == 3:
+    st.subheader("3️⃣ GPS")
+    tgt = f"{st.session_state.project['idea']} ({st.session_state.project['choice']})"
+    st.info(f"Objectif : {tgt}")
+    
+    if not st.session_state.project["gps"]:
+        if credits > 0:
+            with st.status("🗺️ Calcul itinéraire...", expanded=True) as status:
+                st.write("📅 Définition des objectifs à 90 jours...")
+                time.sleep(1)
+                st.write("⚡ Identification des actions immédiates...")
+                try:
+                    res = model.generate_content(f"Plan d'action opérationnel (GPS) pour: {tgt}").text
+                    st.session_state.project["gps"] = res
+                    consume_credit()
+                    status.update(label="✅ Itinéraire prêt !", state="complete", expanded=False)
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="❌ Erreur", state="error")
+                    st.error(f"Erreur IA: {e}")
+        else:
+            st.warning("⚠️ Crédits épuisés. Rechargez pour obtenir votre Plan d'Action Détaillé (GPS).")
+            st.link_button("💳 Recharger", LINK_RECHARGE, type="primary")
+            st.stop()
+        
+    st.markdown(st.session_state.project["gps"])
+    st.divider()
+    st.success("Terminé.")
+    st.link_button("💎 Réserver Audit (Pré-rempli)", generate_form_link(), type="primary")
