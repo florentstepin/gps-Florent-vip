@@ -42,33 +42,32 @@ if "project" not in st.session_state:
 
 # --- 3. FONCTIONS ---
 
-def login_user(email_saisie):
+def login_user(entree_utilisateur):
     """Gère la connexion avec UUID pour Make."""
-    # 1. On nettoie l'entrée et on la stocke dans une variable au nom unique
-    adresse_reelle = str(email_saisie).strip().lower()
+    # ON RENOMME LA VARIABLE POUR FORCER LA VRAIE VALEUR
+    vrai_email = str(entree_utilisateur).strip().lower()
     
     try:
-        # A. Vérification existant
-        res = supabase.table("users").select("*").eq("email", adresse_reelle).execute()
+        # 1. On cherche avec la variable renommee
+        res = supabase.table("users").select("*").eq("email", vrai_email).execute()
         if res.data: return res.data[0]
         
-        # B. Création (Si n'existe pas)
+        # 2. Création
         unique_code = str(uuid.uuid4())
         
-        # C. L'objet à insérer (C'est ici que le bug se produisait)
+        # 3. L'objet à insérer
         new = {
-            "email": adresse_reelle,  # <-- On utilise la variable unique, IMPOSSIBLE de se tromper
+            "email": vrai_email, # <--- ICI : Impossible que ce soit le mot "email"
             "credits": 2, 
             "access_code": unique_code 
         }
-        
         res = supabase.table("users").insert(new).execute()
         if res.data: return res.data[0]
         
     except Exception as e:
-        # Filet de sécurité
+        # Filet de sécurité avec la variable renommee
         try:
-            res = supabase.table("users").select("*").eq("email", adresse_reelle).execute()
+            res = supabase.table("users").select("*").eq("email", vrai_email).execute()
             if res.data: return res.data[0]
         except: 
             st.error(f"Erreur Login: {e}")
