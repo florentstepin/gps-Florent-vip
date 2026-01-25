@@ -42,24 +42,25 @@ if "project" not in st.session_state:
 
 # --- 3. FONCTIONS ---
 
-def login_user(email):
+def login_user(user_email_input):
     """Gère la connexion avec UUID pour Make."""
-    email = str(email).strip().lower()
+    # On renomme la variable pour éviter tout conflit
+    clean_email = str(user_email_input).strip().lower()
     try:
-        res = supabase.table("users").select("*").eq("email", email).execute()
+        res = supabase.table("users").select("*").eq("email", clean_email).execute()
         if res.data: return res.data[0]
         
         unique_code = str(uuid.uuid4())
         new = {
-            "email": email, 
-            "credits": 2, # Stratégie 2 crédits
+            "email": clean_email,  # Ici on envoie bien le contenu nettoyé
+            "credits": 2, 
             "access_code": unique_code 
         }
         res = supabase.table("users").insert(new).execute()
         if res.data: return res.data[0]
     except Exception as e:
         try:
-            res = supabase.table("users").select("*").eq("email", email).execute()
+            res = supabase.table("users").select("*").eq("email", clean_email).execute()
             if res.data: return res.data[0]
         except: 
             st.error(f"Erreur Login: {e}")
