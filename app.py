@@ -42,25 +42,33 @@ if "project" not in st.session_state:
 
 # --- 3. FONCTIONS ---
 
-def login_user(user_email_input):
+def login_user(email_saisie):
     """Gère la connexion avec UUID pour Make."""
-    # On renomme la variable pour éviter tout conflit
-    clean_email = str(user_email_input).strip().lower()
+    # 1. On nettoie l'entrée et on la stocke dans une variable au nom unique
+    adresse_reelle = str(email_saisie).strip().lower()
+    
     try:
-        res = supabase.table("users").select("*").eq("email", clean_email).execute()
+        # A. Vérification existant
+        res = supabase.table("users").select("*").eq("email", adresse_reelle).execute()
         if res.data: return res.data[0]
         
+        # B. Création (Si n'existe pas)
         unique_code = str(uuid.uuid4())
+        
+        # C. L'objet à insérer (C'est ici que le bug se produisait)
         new = {
-            "email": clean_email,  # Ici on envoie bien le contenu nettoyé
+            "email": adresse_reelle,  # <-- On utilise la variable unique, IMPOSSIBLE de se tromper
             "credits": 2, 
             "access_code": unique_code 
         }
+        
         res = supabase.table("users").insert(new).execute()
         if res.data: return res.data[0]
+        
     except Exception as e:
+        # Filet de sécurité
         try:
-            res = supabase.table("users").select("*").eq("email", clean_email).execute()
+            res = supabase.table("users").select("*").eq("email", adresse_reelle).execute()
             if res.data: return res.data[0]
         except: 
             st.error(f"Erreur Login: {e}")
