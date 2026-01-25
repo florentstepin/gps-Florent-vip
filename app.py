@@ -43,9 +43,48 @@ if "project" not in st.session_state:
 # --- 3. FONCTIONS ---
 
 def login_user(email_recu):
-    """Fonction blindée : force l'utilisation de la saisie réelle"""
-    # On force la conversion en string propre
+    """Fonction avec MOUCHARDS pour piéger le bug"""
+    
+    # 1. Nettoyage
     email_propre = str(email_recu).strip().lower()
+    
+    # --- 🕵️‍♂️ MOUCHARD N°1 : Ce que Python a reçu ---
+    st.error(f"🛑 MOUCHARD 1 : J'ai reçu du champ texte -> {email_propre}")
+    
+    try:
+        # A. Vérification
+        res = supabase.table("users").select("*").eq("email", email_propre).execute()
+        if res.data: 
+            st.success("Utilisateur trouvé en base !")
+            return res.data[0]
+        
+        # B. Création
+        unique_code = str(uuid.uuid4())
+        
+        new = {
+            "email": email_propre, 
+            "credits": 2, 
+            "access_code": unique_code 
+        }
+        
+        # --- 🕵️‍♂️ MOUCHARD N°2 : Ce que Python envoie à Supabase ---
+        st.info(f"📤 MOUCHARD 2 : J'envoie ce paquet à Supabase -> {new}")
+        
+        res = supabase.table("users").insert(new).execute()
+        
+        if res.data: 
+            st.balloons() # Si ça marche, ballons !
+            return res.data[0]
+        
+    except Exception as e:
+        # Filet de sécurité
+        st.error(f"ERREUR CRITIQUE : {e}")
+        try:
+            res = supabase.table("users").select("*").eq("email", email_propre).execute()
+            if res.data: return res.data[0]
+        except: 
+            pass
+    return None
     
     try:
         # A. Vérification existant
