@@ -39,6 +39,13 @@ if "user_note" not in st.session_state: st.session_state.user_note = ""
 if "project" not in st.session_state:
     st.session_state.project = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
 
+################################################################################
+# BLOC TEMPORAIRE : OFFRE BÊTA PODIA (À SUPPRIMER DANS 8 JOURS)
+# Ce bloc détecte le lien spécial et prépare les 20 crédits pour les nouveaux
+if st.query_params.get("beta") == "mastery20":
+    st.session_state.bonus_beta = 20
+################################################################################
+
 # --- 3. FONCTIONS ---
 
 def login_user(email):
@@ -50,9 +57,9 @@ def login_user(email):
         unique_code = str(uuid.uuid4())
         new = {
             "email": email, 
-            "credits": 2, 
+            "credits": st.session_state.get("bonus_beta", 2), # Cherche le bonus, sinon met 2
             "access_code": unique_code 
-        }
+        }        
         res = supabase.table("users").insert(new).execute()
         if res.data: return res.data[0]
     except Exception as e:
