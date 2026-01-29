@@ -7,6 +7,7 @@ import os
 import urllib.parse
 import uuid # VITAL POUR MAKE
 import re   # <--- NOUVEAU : Pour nettoyer le texte (Regex)
+import requests # <--- NOUVEAU : Pour la sécurité Webhook
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Stratège IA", page_icon="🎯", layout="wide")
@@ -41,6 +42,20 @@ if "project" not in st.session_state:
     st.session_state.project = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
 
 # --- 3. FONCTIONS ---
+
+def envoyer_donnees_make(url_webhook, donnees):
+    """Envoie des données à Make avec un secret de sécurité."""
+    secret = st.secrets["MAKE_WEBHOOK_SECRET"]
+    headers = {
+        "Content-Type": "application/json",
+        "X-Webhook-Secret": secret
+    }
+    try:
+        response = requests.post(url_webhook, json=donnees, headers=headers)
+        return response.status_code
+    except Exception as e:
+        st.error(f"Erreur technique : {e}")
+        return None
 
 def login_user(email):
     """Gère la connexion avec UUID pour Make."""
@@ -79,11 +94,8 @@ def clean_markdown(text):
     Enlève les **, ##, et reformate les listes.
     """
     if not text: return ""
-    # Enlève les caractères gras/italiques Markdown (** ou *)
     text = re.sub(r'\*\*|__', '', text)
-    # Enlève les titres Markdown (###)
     text = re.sub(r'#+', '', text)
-    # Remplace les puces Markdown par des tirets simples
     text = re.sub(r'^\s*[\-\*]\s+', '- ', text, flags=re.MULTILINE)
     return text.strip()
 
@@ -96,21 +108,18 @@ def generate_form_link():
     note_client = st.session_state.user_note
     raw_audit = st.session_state.project.get("analysis", "")
     
-    # 1. Nettoyage du Markdown
     clean_audit = clean_markdown(raw_audit)
     
-    # 2. Construction du contenu structuré pour Excel
-    # On limite la taille totale pour éviter que le lien ne casse (max ~1500 chars conseillé)
     final_content = f"--- PROJET CLIENT ---\n{idee}\n\n"
     if note_client:
         final_content += f"--- NOTE DU CLIENT ---\n{note_client}\n\n"
     
-    final_content += f"--- AUDIT IA (EXTRAIT) ---\n{clean_audit[:1200]}..." # Tronqué propre
+    final_content += f"--- AUDIT IA (EXTRAIT) ---\n{clean_audit[:1200]}..." 
     
     params = {
         ENTRY_EMAIL: email, 
-        ENTRY_IDEE: idee, # On garde l'idée brute dans sa colonne
-        ENTRY_AUDIT: final_content # Colonne Audit optimisée Excel
+        ENTRY_IDEE: idee, 
+        ENTRY_AUDIT: final_content 
     }
     return f"{BASE_FORM_URL}?{urllib.parse.urlencode(params)}"
 
@@ -158,15 +167,20 @@ credits = user.get("credits", 0)
 with st.sidebar:
     if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
     st.write(f"👤 **{user['email']}**")
-    if credits > 0: st.metric("Crédits", credits)
+    if credits > 0: 
+        st.metric("Crédits", credits)
     else: 
         st.error("0 Crédits")
-        st.link_button("Recharger", LINK_RECHARGE, type="primary")
+    
+    # --- SECTION RECHARGE SÉCURISÉE ---
+    if st.button("Recharger mes crédits", use_container_width=True):
+        envoyer_donnees_make(st.secrets["WEBHOOK_MAKE_URL"], {"email": user['email']})
+        st.link_button("💳 Procéder au paiement", LINK_RECHARGE, type="primary", use_container_width=True)
+    # ----------------------------------
     
     st.divider()
     st.info("💎 **Expert Humain**")
     
-    # --- INPUT DE QUALIFICATION ---
     st.write("Une précision pour l'expert ?")
     st.session_state.user_note = st.text_area("Note optionnelle", 
                                               value=st.session_state.user_note, 
@@ -174,9 +188,7 @@ with st.sidebar:
                                               placeholder="Ex: Mon budget est de...",
                                               label_visibility="collapsed")
     
-    # Le lien intègre maintenant la note et le texte nettoyé
     st.link_button("Réserver Audit (Pré-rempli)", generate_form_link(), type="primary", use_container_width=True)
-    # ------------------------------
 
     st.divider()
     st.write("### 🧭 Navigation")
@@ -192,7 +204,6 @@ with st.sidebar:
     st.divider()
     if st.button("✨ Nouvelle Analyse"): reset_project()
     
-    # JSON
     json_str = json.dumps({"data": st.session_state.project}, indent=4)
     st.download_button("💾 Sauver JSON", json_str, "projet_ia.json", mime="application/json")
     
@@ -269,8 +280,8 @@ if st.session_state.current_page == 1:
                             consume_credit()
                             st.rerun()
                         except Exception as e:
-                             status.update(label="❌ Erreur", state="error")
-                             st.error(f"Erreur IA: {e}")
+                            status.update(label="❌ Erreur", state="error")
+                            st.error(f"Erreur IA: {e}")
         else: st.warning("Rechargez vos crédits")
 
 # PAGE 2 : PIVOTS
