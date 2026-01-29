@@ -6,8 +6,8 @@ import time
 import os
 import urllib.parse
 import uuid # VITAL POUR MAKE
-import re   # <--- NOUVEAU : Pour nettoyer le texte (Regex)
-import requests # <--- NOUVEAU : Pour la sécurité Webhook
+import re   # Pour nettoyer le texte (Regex)
+import requests # Pour la sécurité Webhook future
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Stratège IA", page_icon="🎯", layout="wide")
@@ -19,7 +19,7 @@ try:
     LINK_RECHARGE = st.secrets["LIEN_RECHARGE"]
     
     # Vos codes Google Form
-    BASE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScKU17kIr4t_Wiwi6uTMd0a2CCUMtqOU0w_yEHb8uAXVfgCZw/viewform"
+    BASE_FORM_URL = "https://docs.google.com/forms/e/1FAIpQLScKU17kIr4t_Wiwi6uTMd0a2CCUMtqOU0w_yEHb8uAXVfgCZw/viewform"
     ENTRY_EMAIL = "entry.121343077"
     ENTRY_IDEE  = "entry.1974870243"
     ENTRY_AUDIT = "entry.1147735867"
@@ -37,24 +37,26 @@ except Exception as e:
 # --- 2. INITIALISATION ---
 if "user" not in st.session_state: st.session_state.user = None
 if "current_page" not in st.session_state: st.session_state.current_page = 1
-if "user_note" not in st.session_state: st.session_state.user_note = "" # Stockage note client
+if "user_note" not in st.session_state: st.session_state.user_note = "" 
 if "project" not in st.session_state:
     st.session_state.project = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
 
 # --- 3. FONCTIONS ---
 
 def envoyer_donnees_make(url_webhook, donnees):
-    """Envoie des données à Make avec un secret de sécurité."""
-    secret = st.secrets["MAKE_WEBHOOK_SECRET"]
-    headers = {
-        "Content-Type": "application/json",
-        "X-Webhook-Secret": secret
-    }
+    """
+    Fonction de sécurité pour envoyer des données à Make.
+    Note : Pour la recharge, nous laissons Lemon Squeezy appeler Make directement.
+    """
     try:
+        secret = st.secrets["MAKE_WEBHOOK_SECRET"]
+        headers = {
+            "Content-Type": "application/json",
+            "X-Webhook-Secret": secret
+        }
         response = requests.post(url_webhook, json=donnees, headers=headers)
         return response.status_code
-    except Exception as e:
-        st.error(f"Erreur technique : {e}")
+    except:
         return None
 
 def login_user(email):
@@ -67,7 +69,7 @@ def login_user(email):
         unique_code = str(uuid.uuid4())
         new = {
             "email": email, 
-            "credits": 2, # Stratégie 2 crédits
+            "credits": 2, 
             "access_code": unique_code 
         }
         res = supabase.table("users").insert(new).execute()
@@ -89,10 +91,6 @@ def consume_credit():
         st.session_state.user['credits'] = new_val
 
 def clean_markdown(text):
-    """
-    Nettoie le texte IA pour qu'il soit lisible dans Excel.
-    Enlève les **, ##, et reformate les listes.
-    """
     if not text: return ""
     text = re.sub(r'\*\*|__', '', text)
     text = re.sub(r'#+', '', text)
@@ -100,14 +98,11 @@ def clean_markdown(text):
     return text.strip()
 
 def generate_form_link():
-    """Génère un lien propre et optimisé pour Excel"""
     if not st.session_state.user: return BASE_FORM_URL
-    
     email = st.session_state.user['email']
     idee = st.session_state.project.get("idea", "")
     note_client = st.session_state.user_note
     raw_audit = st.session_state.project.get("analysis", "")
-    
     clean_audit = clean_markdown(raw_audit)
     
     final_content = f"--- PROJET CLIENT ---\n{idee}\n\n"
@@ -172,11 +167,11 @@ with st.sidebar:
     else: 
         st.error("0 Crédits")
     
-    # --- SECTION RECHARGE SÉCURISÉE ---
-    if st.button("Recharger mes crédits", use_container_width=True):
-        envoyer_donnees_make(st.secrets["WEBHOOK_MAKE_URL"], {"email": user['email']})
-        st.link_button("💳 Procéder au paiement", LINK_RECHARGE, type="primary", use_container_width=True)
-    # ----------------------------------
+    # --- SECTION RECHARGE (SÉCURISÉE & DIRECTE) ---
+    # Le bouton redirige directement vers Lemon Squeezy. 
+    # Le Webhook Lemon Squeezy s'occupera de prévenir Make après le paiement.
+    st.link_button("⚡ Recharger mes crédits", LINK_RECHARGE, type="primary", use_container_width=True)
+    # ----------------------------------------------
     
     st.divider()
     st.info("💎 **Expert Humain**")
@@ -224,11 +219,9 @@ st.progress(st.session_state.current_page / 3)
 # PAGE 1 : ANALYSE
 if st.session_state.current_page == 1:
     st.subheader("1️⃣ Analyse Crash-Test")
-    
     if st.session_state.project["analysis"]:
         st.info(f"Sujet : {st.session_state.project['idea']}")
         st.markdown(st.session_state.project["analysis"])
-        
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Aller aux Pivots ➡️", type="primary"):
@@ -250,110 +243,4 @@ if st.session_state.current_page == 1:
                                 res = model.generate_content(f"Analyse critique business (Avocat du Diable): {new_txt}").text
                                 st.session_state.project["analysis"] = res
                                 status.update(label="✅ Analyse terminée !", state="complete", expanded=False)
-                                
                                 st.session_state.project["pivots"] = ""
-                                st.session_state.project["gps"] = ""
-                                consume_credit()
-                                st.rerun() 
-                            except Exception as e:
-                                status.update(label="❌ Erreur", state="error")
-                                st.error(f"Erreur IA: {e}")
-                    else: st.error("Pas de crédit")
-
-    else:
-        if credits > 0:
-            idea_input = st.text_area("Votre idée :", height=150)
-            if st.button("Lancer (1 crédit)", type="primary"):
-                if idea_input:
-                    st.session_state.project["idea"] = idea_input
-                    with st.status("🧠 Activation Stratège IA...", expanded=True) as status:
-                        st.write("Lecture de l'idée...")
-                        time.sleep(0.5)
-                        st.write("Scan des concurrents & Risques...")
-                        time.sleep(1)
-                        st.write("⚖️ Pesée des arguments...")
-                        try:
-                            res = model.generate_content(f"Analyse critique business (Avocat du Diable): {idea_input}").text
-                            st.session_state.project["analysis"] = res
-                            status.update(label="✅ Rapport généré !", state="complete", expanded=False)
-                            
-                            consume_credit()
-                            st.rerun()
-                        except Exception as e:
-                            status.update(label="❌ Erreur", state="error")
-                            st.error(f"Erreur IA: {e}")
-        else: st.warning("Rechargez vos crédits")
-
-# PAGE 2 : PIVOTS
-elif st.session_state.current_page == 2:
-    st.subheader("2️⃣ Pivots Stratégiques")
-    
-    if st.session_state.project["idea"]:
-        st.info(f"📌 Projet : {st.session_state.project['idea']}")
-    
-    if not st.session_state.project["pivots"]:
-        if credits > 0: 
-            with st.status("💡 Recherche de Pivots en cours...", expanded=True) as status:
-                st.write("🔄 Analyse des Business Models alternatifs...")
-                time.sleep(1.5)
-                st.write("🚀 Brainstorming des stratégies de scalabilité...")
-                time.sleep(1.5)
-                st.write("✍️ Formalisation des 3 options...")
-                
-                try:
-                    res = model.generate_content(f"3 Pivots business créatifs pour: {st.session_state.project['idea']}").text
-                    st.session_state.project["pivots"] = res
-                    consume_credit()
-                    status.update(label="✅ 3 Stratégies trouvées !", state="complete", expanded=False)
-                    st.rerun()
-                except Exception as e:
-                    status.update(label="❌ Erreur", state="error")
-                    st.error(f"Erreur IA: {e}")
-                    st.stop()
-        else:
-            st.warning("⚠️ Crédits épuisés. Rechargez pour découvrir les Pivots Stratégiques.")
-            st.link_button("💳 Recharger", LINK_RECHARGE, type="primary")
-            st.stop()
-        
-    st.markdown(st.session_state.project["pivots"])
-    st.divider()
-    opts = ["Idée Initiale", "Pivot 1", "Pivot 2", "Pivot 3"]
-    cur = st.session_state.project.get("choice")
-    idx = opts.index(cur) if cur in opts else 0
-    choice = st.radio("Choix :", opts, index=idx)
-    if st.button("Valider et Voir le GPS ➡️", type="primary"):
-        st.session_state.project["choice"] = choice
-        st.session_state.project["gps"] = ""
-        st.session_state.current_page = 3
-        st.rerun()
-
-# PAGE 3 : GPS
-elif st.session_state.current_page == 3:
-    st.subheader("3️⃣ GPS")
-    tgt = f"{st.session_state.project['idea']} ({st.session_state.project['choice']})"
-    st.info(f"Objectif : {tgt}")
-    
-    if not st.session_state.project["gps"]:
-        if credits > 0:
-            with st.status("🗺️ Calcul itinéraire...", expanded=True) as status:
-                st.write("📅 Définition des objectifs à 90 jours...")
-                time.sleep(1)
-                st.write("⚡ Identification des actions immédiates...")
-                try:
-                    res = model.generate_content(f"Plan d'action opérationnel (GPS) pour: {tgt}").text
-                    st.session_state.project["gps"] = res
-                    consume_credit()
-                    status.update(label="✅ Itinéraire prêt !", state="complete", expanded=False)
-                    st.rerun()
-                except Exception as e:
-                    status.update(label="❌ Erreur", state="error")
-                    st.error(f"Erreur IA: {e}")
-        else:
-            st.warning("⚠️ Crédits épuisés. Rechargez pour obtenir votre Plan d'Action Détaillé (GPS).")
-            st.link_button("💳 Recharger", LINK_RECHARGE, type="primary")
-            st.stop()
-        
-    st.markdown(st.session_state.project["gps"])
-    st.divider()
-    st.success("Terminé.")
-    st.link_button("💎 Réserver Audit (Pré-rempli)", generate_form_link(), type="primary")
