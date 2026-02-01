@@ -7,7 +7,6 @@ import os
 import urllib.parse
 import uuid 
 import re   
-import requests 
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Stratège IA V2", page_icon="🧠", layout="wide")
@@ -34,7 +33,10 @@ except Exception as e:
 # --- 2. INITIALISATION ---
 if "user" not in st.session_state: st.session_state.user = None
 if "project" not in st.session_state:
-    st.session_state.project = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
+    st.session_state.project = {
+        "idea": "", "context": "", "analysis": "", 
+        "pivots": "", "gps": "", "choice": None
+    }
 if "user_note" not in st.session_state: st.session_state.user_note = "" 
 
 # --- 3. FONCTIONS ---
@@ -60,35 +62,26 @@ def consume_credit():
             st.session_state.user['credits'] = new_val
         except: pass
 
-def clean_markdown(text):
-    if not text: return ""
-    text = re.sub(r'\*\*|__', '', text)
-    text = re.sub(r'#+', '', text)
-    text = re.sub(r'^\s*[\-\*]\s+', '- ', text, flags=re.MULTILINE)
-    return text.strip()
+def generate_report():
+    p = st.session_state.project
+    report = f"# 🧠 RAPPORT STRATÈGE IA\n\n## 📝 IDÉE INITIALE\n{p['idea']}\n\n"
+    report += f"## 🎯 CONTEXTE\n{p.get('context', 'Non précisé')}\n\n"
+    report += f"## 🔍 ANALYSE CRASH-TEST\n{p['analysis']}\n\n"
+    report += f"## 💡 PIVOTS STRATÉGIQUES\n{p['pivots']}\n\n"
+    report += f"## 🗺️ PLAN D'ACTION GPS (Choix : {p['choice']})\n{p['gps']}"
+    return report
 
 def generate_form_link():
     if not st.session_state.user: return BASE_FORM_URL
     email = st.session_state.user['email']
     idee = st.session_state.project.get("idea", "")
-    raw_audit = st.session_state.project.get("analysis", "")
-    params = {ENTRY_EMAIL: email, ENTRY_IDEE: idee, ENTRY_AUDIT: f"ID de session V2 - Audit complet à joindre en PDF."}
+    params = {ENTRY_EMAIL: email, ENTRY_IDEE: idee, ENTRY_AUDIT: f"ID Session V2. Joindre le rapport PDF/MD à Florent."}
     return f"{BASE_FORM_URL}?{urllib.parse.urlencode(params)}"
 
 def reset_project():
-    st.session_state.project = {"idea": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
+    st.session_state.project = {"idea": "", "context": "", "analysis": "", "pivots": "", "gps": "", "choice": None}
     st.session_state.user_note = ""
     st.rerun()
-
-def load_json(uploaded_file):
-    try:
-        data = json.load(uploaded_file)
-        st.session_state.project.update(data.get("data", {}))
-        st.success("Dossier chargé ! Cliquez sur l'onglet correspondant.")
-        time.sleep(1)
-        st.rerun()
-    except Exception as e:
-        st.error(f"Erreur JSON : {e}")
 
 # --- 4. AUTHENTIFICATION ---
 if not st.session_state.user:
@@ -114,7 +107,7 @@ with st.sidebar:
     if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
     
     st.markdown(f"""
-    <div style='background-color: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px;'>
+    <div style='background-color: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px;'>
         <div style='font-size: 0.8em; opacity: 0.7;'>Utilisateur :</div>
         <div style='font-weight: bold; font-size: 0.9em;'>{user['email']}</div>
         <div style='margin-top: 10px; font-weight: bold; color: #7f5af0; font-size: 1.2em;'>🎯 {credits} Crédits</div>
@@ -123,27 +116,29 @@ with st.sidebar:
 
     with st.popover("❓ Guide de Survie", use_container_width=True):
         st.markdown("""
-        **Conseils pour une analyse réussie :**
-        * **Détails** : Donnez 5-10 lignes de contexte (Cible, but, ressources). [cite: 525, 621]
-        * **Écran** : Ne laissez pas votre mobile se mettre en veille pendant l'analyse. [cite: 634]
-        * **VPN** : Coupez votre VPN si l'application semble bloquée. [cite: 433, 451]
-        * **Sauvegarde** : Exportez votre JSON après chaque étape ! [cite: 316, 559]
+        ### 🧭 Guide de Survie
+        * **Précision** : Donnez 5-10 lignes de détails (Cible, budget).
+        * **Écran Mobile** : Gardez l'écran actif pendant l'analyse.
+        * **Sauvegarde** : Exportez votre session JSON après chaque étape !
         """)
 
     st.link_button("⚡ Recharger mes crédits", LINK_RECHARGE, type="primary", use_container_width=True)
     
     st.divider()
     
-    with st.expander("📂 Sauvegarde & Import", expanded=False):
+    with st.expander("📂 Sauvegarde & Export", expanded=False):
+        # NOUVEAUTÉ : Export Rapport Pro (Markdown)
+        if st.session_state.project["analysis"]:
+            st.download_button("📄 Télécharger le Rapport (.md)", generate_report(), "Rapport_Stratege_IA.md", use_container_width=True, help="Rapport complet pour Notion/Obsidian")
+        
         json_str = json.dumps({"data": st.session_state.project}, indent=4)
-        st.download_button("💾 Sauver JSON", json_str, "projet_ia.json", use_container_width=True, help="Sauvegarde locale gratuite")
-        up = st.file_uploader("Charger JSON", type="json")
-        if up: load_json(up)
+        st.download_button("💾 Sauver session (JSON)", json_str, "projet_ia.json", use_container_width=True)
+        
         if st.button("✨ Nouvelle Analyse", use_container_width=True): reset_project()
 
     with st.expander("💎 Expert Humain", expanded=False):
-        st.session_state.user_note = st.text_area("Note pour l'expert", value=st.session_state.user_note, placeholder="Précisez votre budget, vos outils...") [cite: 66, 277]
-        st.link_button("Réserver Audit", generate_form_link(), use_container_width=True)
+        st.session_state.user_note = st.text_area("Note pour l'expert", value=st.session_state.user_note, placeholder="Précisez votre budget, vos outils...")
+        st.link_button("Réserver mon Audit", generate_form_link(), use_container_width=True)
 
     st.divider()
     if st.button("🚪 Déconnexion", use_container_width=True):
@@ -151,70 +146,77 @@ with st.sidebar:
         st.rerun()
 
 # --- 6. CORPS DE L'APPLICATION ---
+# Custom CSS pour changer le rouge par du Violet/Bleu
+st.markdown("""
+    <style>
+    div.stButton > button:first-child { background-color: #7f5af0; color: white; border: none; }
+    div.stButton > button:hover { background-color: #6246ea; color: white; }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("🧠 Stratège IA")
 
-# Onboarding Message
-if not st.session_state.project["analysis"]:
-    st.info("👋 **Bienvenue !** Transformez votre idée en plan d'action en 3 étapes : **1. Analyse** (Évaluer les risques) → **2. Pivots** (Choisir l'angle) → **3. GPS** (Exécuter).") [cite: 19, 486]
-
-# Système d'onglets
-tab1, tab2, tab3 = st.tabs(["🔍 1. Analyse Crash-Test", "💡 2. Pivots Stratégiques", "🗺️ 3. Plan d'Action GPS"]) [cite: 43, 683, 734]
+tab1, tab2, tab3 = st.tabs(["🔍 1. Analyse Crash-Test", "💡 2. Pivots Stratégiques", "🗺️ 3. Plan d'Action GPS"])
 
 with tab1:
     if st.session_state.project["analysis"]:
-        st.success(f"Projet : {st.session_state.project['idea']}")
+        st.success(f"📌 Sujet : {st.session_state.project['idea']}")
         st.markdown(st.session_state.project["analysis"])
-        if st.button("Passer aux Pivots ➡️", type="primary"):
-            st.info("Cliquez sur l'onglet '2. Pivots Stratégiques' en haut de l'écran.")
     else:
-        idea_input = st.text_area("Décrivez votre projet (3-5 phrases pour un meilleur résultat) :", height=150, placeholder="Ex: Je veux lancer une formation pour...") [cite: 23, 721]
-        if st.button("Lancer l'Analyse (1 crédit)", type="primary"):
+        st.info("👋 **Étape 1 : Évaluer les risques.** Précisez votre contexte pour une analyse sur-mesure.")
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            idea_input = st.text_area("Votre idée en quelques phrases :", height=150, placeholder="Ex: Créer une plateforme de formation pour...")
+        with c2:
+            context_input = st.text_area("Votre contexte (Cible, Budget, Taille structure) :", height=150, placeholder="Ex: Solo-preneur, budget 2000€, cible : agents immobiliers...")
+        
+        if st.button("Lancer l'Analyse (1 crédit)", use_container_width=True):
             if idea_input and credits > 0:
-                with st.status("🕵️‍♂️ L'Avocat du Diable analyse votre idée...", expanded=True):
+                with st.status("🧠 Analyse stratégique en cours...", expanded=True):
+                    full_prompt = f"Idée: {idea_input}\nContexte: {context_input}\nAnalyse critique business structurée (SWOT, Risques, Viabilité)."
                     try:
-                        res = model.generate_content(f"Analyse critique business: {idea_input}").text
+                        res = model.generate_content(full_prompt).text
                         st.session_state.project["idea"] = idea_input
+                        st.session_state.project["context"] = context_input
                         st.session_state.project["analysis"] = res
                         consume_credit()
                         st.rerun()
                     except Exception as e: st.error(f"Erreur : {e}")
-            elif credits <= 0: st.error("Crédits insuffisants.")
-            else: st.warning("Veuillez saisir votre idée.")
+            elif credits <= 0: st.warning("Crédits insuffisants.")
+            else: st.warning("Veuillez décrire votre idée.")
 
 with tab2:
     if not st.session_state.project["analysis"]:
-        st.warning("⚠️ Veuillez d'abord compléter l'étape 1 (Analyse).")
+        st.warning("⚠️ Complétez l'étape 1 d'abord.")
     elif st.session_state.project["pivots"]:
         st.markdown(st.session_state.project["pivots"])
         opts = ["Idée Initiale", "Pivot 1", "Pivot 2", "Pivot 3"]
-        choice = st.radio("Sur quel angle voulez-vous construire votre GPS ?", opts)
-        if st.button("Valider et Créer le GPS 🗺️", type="primary"):
+        choice = st.radio("Quel angle choisissez-vous pour le GPS ?", opts)
+        if st.button("Valider ce choix 🗺️", use_container_width=True):
             st.session_state.project["choice"] = choice
             st.session_state.project["gps"] = ""
-            st.info("Direction l'onglet '3. Plan d'Action GPS' !")
+            st.rerun()
     else:
-        if st.button("Générer les 3 Pivots Stratégiques (1 crédit)", type="primary"):
-            with st.status("💡 Brainstorming des angles d'attaque...", expanded=True):
-                try:
-                    res = model.generate_content(f"3 Pivots business pour: {st.session_state.project['idea']}").text
-                    st.session_state.project["pivots"] = res
-                    consume_credit()
-                    st.rerun()
-                except Exception as e: st.error(f"Erreur : {e}")
+        if st.button("Générer les 3 Pivots (1 crédit)", use_container_width=True):
+            with st.status("💡 Recherche d'angles morts...", expanded=True):
+                prompt = f"3 Pivots business pour l'idée : {st.session_state.project['idea']} avec le contexte : {st.session_state.project['context']}"
+                res = model.generate_content(prompt).text
+                st.session_state.project["pivots"] = res
+                consume_credit()
+                st.rerun()
 
 with tab3:
     if not st.session_state.project["choice"]:
-        st.warning("⚠️ Veuillez choisir un pivot à l'étape 2.")
+        st.warning("⚠️ Choisissez un pivot à l'étape 2.")
     elif st.session_state.project["gps"]:
         st.markdown(st.session_state.project["gps"])
-        st.success("✅ Votre feuille de route est prête. N'oubliez pas d'exporter le JSON dans la sidebar.")
+        st.success("✅ GPS prêt. Téléchargez votre rapport complet dans la sidebar !")
     else:
         tgt = f"{st.session_state.project['idea']} (Angle : {st.session_state.project['choice']})"
-        if st.button("Générer le Plan GPS (1 crédit)", type="primary"):
-            with st.status("🗺️ Séquençage des étapes opérationnelles...", expanded=True):
-                try:
-                    res = model.generate_content(f"Plan d'action opérationnel (GPS) détaillé pour: {tgt}").text
-                    st.session_state.project["gps"] = res
-                    consume_credit()
-                    st.rerun()
-                except Exception as e: st.error(f"Erreur : {e}")
+        if st.button("Générer le Plan d'Action (1 crédit)", use_container_width=True):
+            with st.status("🗺️ Séquençage des étapes...", expanded=True):
+                res = model.generate_content(f"Plan d'action GPS détaillé pour : {tgt}. Contexte : {st.session_state.project['context']}").text
+                st.session_state.project["gps"] = res
+                consume_credit()
+                st.rerun()
