@@ -48,21 +48,44 @@ def consume_credit():
         supabase.table("users").update({"credits": new_val}).eq("email", st.session_state.user['email']).execute()
         st.session_state.user['credits'] = new_val
 
-# --- 4. SIDEBAR ---
+# --- 4. SIDEBAR AVEC GUIDE ENRICHI ---
 with st.sidebar:
     if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
     if st.session_state.user:
         st.markdown(f"**👤 {st.session_state.user['email']}**")
         st.info(f"🎯 **{st.session_state.user['credits']} Crédits**")
         
-        with st.popover("❓ Guide de Survie", use_container_width=True):
-            t1, t2 = st.tabs(["💻 Tech", "🧠 Méthode"])
-            with t1: st.markdown("**PAS DE F5** : N'actualisez pas pendant une analyse.\n**Veille** : Gardez l'écran mobile actif.")
-            with t2: st.markdown("**Détails** : Donnez 5-10 lignes de contexte.\n**Cible** : Soyez précis (ex: 'Coiffeurs à Lyon').")
+        # --- LE NOUVEAU GUIDE INTERMÉDIAIRE ---
+        with st.popover("❓ Guide de Survie & Méthode", use_container_width=True):
+            st.markdown("### 🧭 Réussir votre stratégie")
+            t_tech, t_meth, t_sauve = st.tabs(["💻 Tech", "🧠 Méthode", "💾 Sauvegarde"])
+            
+            with t_tech:
+                st.markdown("""
+                **Éviter les coupures :**
+                * **⚠️ PAS DE F5** : N'actualisez jamais la page pendant une analyse, cela couperait la session et perdrait votre crédit.
+                * **Écran mobile** : Désactivez la mise en veille auto. Si l'écran s'éteint, la connexion avec l'IA peut s'interrompre.
+                * **VPN** : Coupez votre VPN si l'application semble "mouliner" sans fin.
+                """)
+            
+            with t_meth:
+                st.markdown("""
+                **Résultat de haute qualité :**
+                * **Le Carburant** : L'IA ne devine pas. Donnez 5 à 10 lignes sur votre cible et vos ressources réelles.
+                * **Zéro Généralités** : Plus vous êtes spécifique (ex: 'agents immo à Lyon' plutôt que 'pros'), plus le GPS sera actionnable.
+                """)
+                
+            with t_sauve:
+                st.markdown("""
+                **Ne rien perdre :**
+                * **Export JSON** : C'est votre "disquette". Téléchargez-le après chaque étape validée.
+                * **Gratuité** : Recharger un JSON ne consomme **aucun crédit** et restaure tout instantanément.
+                * **Export PDF** : (Arrive demain matin !)
+                """)
         
         st.link_button("⚡ Recharger", LINK_RECHARGE, type="primary", use_container_width=True)
         st.divider()
-        with st.expander("📂 Session", expanded=False):
+        with st.expander("📂 Gestion de Session", expanded=False):
             json_str = json.dumps({"data": st.session_state.project}, indent=4)
             st.download_button("💾 Sauver JSON", json_str, "projet.json", use_container_width=True)
             if st.button("✨ Nouveau Projet", use_container_width=True):
@@ -72,47 +95,53 @@ with st.sidebar:
 # --- 5. CORPS DE L'APPLI ---
 if not st.session_state.user:
     st.title("🚀 Stratège IA")
-    email = st.text_input("Email")
+    email = st.text_input("Votre Email Professionnel")
     if st.button("Connexion"):
         st.session_state.user = login_user(email); st.rerun()
     st.stop()
 
 st.title("🧠 Stratège IA V2")
-tab1, tab2, tab3 = st.tabs(["🔍 1. Analyse", "💡 2. Pivots", "🗺️ 3. GPS"])
+tab1, tab2, tab3 = st.tabs(["🔍 1. Analyse Crash-Test", "💡 2. Pivots Stratégiques", "🗺️ 3. Plan d'Action GPS"])
 
 with tab1:
     if st.session_state.project["analysis"]:
         st.success(f"📌 Sujet : {st.session_state.project['idea']}")
         st.markdown(st.session_state.project["analysis"])
     else:
+        st.info("👋 **Étape 1 : Évaluer les risques.** Précisez votre contexte pour une analyse sur-mesure.")
         c1, c2 = st.columns(2)
-        idea = c1.text_area("Votre idée :", height=150, placeholder="Décrivez votre concept...")
-        ctx = c2.text_area("Contexte (Cible, budget) :", height=150, placeholder="Solo-preneur, 2000€, France...")
-        if st.button("Lancer l'Analyse (1 crédit)"):
+        idea = c1.text_area("Votre idée en quelques phrases :", height=150, placeholder="Décrivez votre concept...")
+        ctx = c2.text_area("Votre contexte (Cible, budget, ressources) :", height=150, placeholder="Ex: Solo-preneur, 2000€ de budget, cible : France...")
+        if st.button("Lancer l'Analyse (1 crédit)", use_container_width=True):
             if idea and st.session_state.user['credits'] > 0:
-                with st.status("Analyse en cours..."):
-                    res = model.generate_content(f"Critique business. Idée: {idea}. Contexte: {ctx}").text
+                with st.status("🧠 Analyse stratégique en cours...", expanded=True):
+                    full_prompt = f"Idée: {idea}\nContexte: {ctx}\nAnalyse critique business structurée (SWOT, Risques, Viabilité)."
+                    res = model.generate_content(full_prompt).text
                     st.session_state.project.update({"idea": idea, "context": ctx, "analysis": res})
                     consume_credit(); st.rerun()
+            elif st.session_state.user['credits'] <= 0: st.warning("Crédits insuffisants.")
+            else: st.warning("Veuillez décrire votre idée.")
 
 with tab2:
-    if not st.session_state.project["analysis"]: st.warning("Faites l'étape 1.")
+    if not st.session_state.project["analysis"]: st.warning("⚠️ Complétez l'étape 1 d'abord.")
     elif st.session_state.project["pivots"]:
         st.markdown(st.session_state.project["pivots"])
-        if st.button("Passer au GPS"): st.session_state.project["choice"] = "Pivots ok"; st.rerun()
+        if st.button("Passer au GPS ➡️", use_container_width=True): 
+            st.session_state.project["choice"] = "Pivots validés"
+            st.rerun()
     else:
-        if st.button("Générer les Pivots (1 crédit)"):
-            with st.status("Brainstorming..."):
-                res = model.generate_content(f"3 pivots pour: {st.session_state.project['idea']}").text
+        if st.button("Générer les 3 Pivots (1 crédit)", use_container_width=True):
+            with st.status("💡 Recherche d'angles morts...", expanded=True):
+                res = model.generate_content(f"3 Pivots business pour : {st.session_state.project['idea']}").text
                 st.session_state.project["pivots"] = res
                 consume_credit(); st.rerun()
 
 with tab3:
-    if not st.session_state.project["choice"]: st.warning("Faites l'étape 2.")
+    if not st.session_state.project["choice"]: st.warning("⚠️ Choisissez vos pivots à l'étape 2.")
     elif st.session_state.project["gps"]: st.markdown(st.session_state.project["gps"])
     else:
-        if st.button("Générer le GPS (1 crédit)"):
-            with st.status("Planification..."):
-                res = model.generate_content(f"GPS pour: {st.session_state.project['idea']}").text
+        if st.button("Générer le Plan d'Action GPS (1 crédit)", use_container_width=True):
+            with st.status("🗺️ Séquençage des étapes...", expanded=True):
+                res = model.generate_content(f"Plan d'action GPS détaillé pour : {st.session_state.project['idea']}").text
                 st.session_state.project["gps"] = res
                 consume_credit(); st.rerun()
