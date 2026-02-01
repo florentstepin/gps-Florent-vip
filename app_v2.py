@@ -187,7 +187,33 @@ with st.sidebar:
         st.rerun()
 
 st.title("🧠 Stratège IA")
-st.progress(st.session_state.current_page / 3)
+
+# Message d'accueil pédagogique (Onboarding)
+if not st.session_state.project["analysis"]:
+    st.info("👋 **Bienvenue !** Transformez votre idée en plan d'action en 3 étapes : **1. Analyse Crash-Test** (Dérisquer) → **2. Pivots** (Choisir l'angle) → **3. GPS** (Exécuter).")
+
+# Création des onglets
+tab1, tab2, tab3 = st.tabs(["🔍 1. Analyse Crash-Test", "💡 2. Pivots Stratégiques", "🗺️ 3. Plan d'Action GPS"])
+
+with tab1:
+    # --- LOGIQUE ANALYSE (PAGE 1 ACTUELLE) ---
+    # Collez ici votre code de "if st.session_state.current_page == 1:" 
+    # mais sans le "if st.session_state.current_page == 1:"
+    ...
+
+with tab2:
+    if not st.session_state.project["analysis"]:
+        st.warning("Veuillez d'abord réaliser l'Analyse Crash-Test (Étape 1).")
+    else:
+        # --- LOGIQUE PIVOTS (PAGE 2 ACTUELLE) ---
+        ...
+
+with tab3:
+    if not st.session_state.project["pivots"]:
+        st.warning("Veuillez d'abord valider vos Pivots (Étape 2) pour générer le GPS.")
+    else:
+        # --- LOGIQUE GPS (PAGE 3 ACTUELLE) ---
+        ...
 
 # PAGE 1 : ANALYSE
 if st.session_state.current_page == 1:
