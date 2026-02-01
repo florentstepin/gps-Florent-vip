@@ -114,13 +114,34 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    with st.popover("❓ Guide de Survie", use_container_width=True):
-        st.markdown("""
-        ### 🧭 Guide de Survie
-        * **Précision** : Donnez 5-10 lignes de détails (Cible, budget).
-        * **Écran Mobile** : Gardez l'écran actif pendant l'analyse.
-        * **Sauvegarde** : Exportez votre session JSON après chaque étape !
-        """)
+with st.popover("❓ Guide de Survie & Méthode", use_container_width=True):
+        st.markdown("### 🧭 Comment réussir votre stratégie")
+        
+        tab_tech, tab_methode, tab_sauve = st.tabs(["💻 Technique", "🧠 Méthode", "💾 Sécurité"])
+        
+        with tab_tech:
+            st.markdown("""
+            **Pour éviter les coupures :**
+            * **Écran actif** : Sur mobile, désactivez la mise en veille auto. Une session coupée = analyse perdue.
+            * **VPN/Adblock** : Si l'IA semble "mouliner" sans fin, coupez votre VPN ou vos bloqueurs de pubs.
+            * **Rafraîchissement** : Ne faites pas 'F5' pendant que l'IA réfléchit.
+            """)
+            
+        with tab_methode:
+            st.markdown("""
+            **Pour un résultat de haute qualité :**
+            * **Le Carburant** : L'IA ne devine pas. Donnez 5 à 10 lignes sur votre cible et vos ressources.
+            * **L'Étape Miroir** : Vérifiez bien le résumé de l'IA à l'étape 1 avant de valider.
+            * **Pas de généralités** : Plus vous êtes spécifique (ex: 'vendre à des agents immo' plutôt que 'vendre à des pros'), plus le GPS sera précis.
+            """)
+            
+        with tab_sauve:
+            st.markdown("""
+            **Ne perdez rien :**
+            * **JSON** : C'est votre "disquette de sauvegarde". Téléchargez-le après chaque étape validée.
+            * **Gratuité** : Charger un JSON ne consomme aucun crédit et restaure tout votre travail instantanément.
+            * **Rapport** : Utilisez l'export .md pour copier votre stratégie dans Notion.
+            """)
 
     st.link_button("⚡ Recharger mes crédits", LINK_RECHARGE, type="primary", use_container_width=True)
     
