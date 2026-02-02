@@ -20,7 +20,6 @@ st.markdown("""
     div.stButton > button:first-child { background-color: #7f5af0; color: white; border: none; border-radius: 8px; font-weight: bold; height: 3em; }
     div.stButton > button:hover { background-color: #6246ea; color: white; }
     
-    /* Correction visibilité bandeau : Texte noir sur fond lavande */
     .intro-box { 
         background-color: rgba(127, 90, 240, 0.15); 
         padding: 20px; 
@@ -69,7 +68,8 @@ def create_pdf_bytes(data):
         pdf.set_font("Helvetica", "B", 12); pdf.set_text_color(127, 90, 240)
         pdf.cell(0, 10, title, ln=True)
         pdf.set_font("Helvetica", size=10); pdf.set_text_color(0, 0, 0)
-        pdf.multi_cell(0, 5, (content if content else "Non genere").encode('latin-1', 'replace').decode('latin-1'))
+        text = content if content else "Non genere"
+        pdf.multi_cell(0, 5, text.encode('latin-1', 'replace').decode('latin-1'))
         pdf.ln(5)
     return bytes(pdf.output())
 
@@ -96,13 +96,6 @@ with st.sidebar:
     if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
     if st.session_state.user:
         st.info(f"👤 {st.session_state.user['email']}\n🎯 **{st.session_state.user['credits']} Crédits**")
-        
-        with st.popover("❓ Guide de Survie & Méthode", use_container_width=True):
-            t1, t2, t3 = st.tabs(["💻 Tech", "🧠 Méthode", "💾 Sauvegarde"])
-            with t1: st.markdown("**PAS DE F5** : N'actualisez jamais.\n**VEILLE** : Gardez l'écran allumé.")
-            with t2: st.markdown("**DÉTAILS** : Plus vous donnez de carburant, plus l'IA est précise.")
-            with t3: st.markdown("**JSON** : Sauvegardez pour reprendre gratuitement.\n**PDF** : Votre rapport final.")
-
         st.link_button("⚡ Recharger", LINK_RECHARGE, type="primary", use_container_width=True)
         st.divider()
 
@@ -149,11 +142,12 @@ with nav3:
 
 st.progress(st.session_state.current_step / 3)
 
-# ETAPE 1 : ANALYSE
+# ETAPE 1 : ANALYSE (CASCADE RESET)
 if st.session_state.current_step == 1:
     st.header("🔍 Analyse Crash-Test")
     if st.session_state.project["analysis"]:
         st.markdown(st.session_state.project["analysis"])
+        st.divider()
         st.warning("⚠️ Pensez à sauvegarder avant de relancer l'analyse qui écrasera la version actuelle")
         with st.popover("🔄 Affiner & Relancer (1 crédit)"):
             refine = st.text_area("Ajustements (ex: focus B2B)...")
@@ -162,6 +156,9 @@ if st.session_state.current_step == 1:
                     with st.status("Analyse en cours..."):
                         p = f"Analyse cette idée : {st.session_state.project['idea']}.\nInstruction : {refine}."
                         st.session_state.project["analysis"] = model.generate_content(p).text
+                        # RESET de la cascade pour coherence
+                        st.session_state.project["pivots"] = ""
+                        st.session_state.project["gps"] = ""
                         consume_credit(); st.rerun()
         if st.button("➡️ Suivant : Pivots", use_container_width=True): st.session_state.current_step = 2; st.rerun()
     else:
@@ -177,14 +174,16 @@ if st.session_state.current_step == 1:
 # ETAPE 2 : PIVOTS (CUMULATIF)
 elif st.session_state.current_step == 2:
     st.header("💡 Pivots Stratégiques")
-    if st.session_state.project["pivots"]:
+    if not st.session_state.project["analysis"]:
+        st.warning("Veuillez d'abord générer l'analyse à l'étape 1.")
+    elif st.session_state.project["pivots"]:
         st.markdown(st.session_state.project["pivots"], unsafe_allow_html=True)
         with st.popover("➕ Ajouter 3 nouveaux pivots (1 crédit)"):
-            refine = st.text_area("Orientation pour ces nouveaux pivots (ex: 'Plus technologiques'...)")
-            if st.button("Générer Variantes 4, 5 et 6"):
+            refine = st.text_area("Orientation pour les variantes 4, 5 et 6...")
+            if st.button("Générer les variantes"):
                 if st.session_state.user['credits'] > 0:
                     with st.status("Analyse en cours..."):
-                        p = f"Basé sur l'idée : {st.session_state.project['idea']}, génère 3 NOUVELLES variantes de pivots numérotées 4, 5 et 6. Instruction : {refine}. Termine par un tableau comparatif avec les pivots précédents."
+                        p = f"Basé sur l'idée : {st.session_state.project['idea']}, génère 3 NOUVELLES variantes de pivots numérotées 4, 5 et 6. Instruction : {refine}. Termine par un tableau comparatif."
                         res = model.generate_content(p).text
                         st.session_state.project["pivots"] += f"\n\n<div class='variant-divider'>🔄 Variante : {refine}</div>\n\n{res}"
                         consume_credit(); st.rerun()
@@ -201,8 +200,11 @@ elif st.session_state.current_step == 2:
 # ETAPE 3 : GPS
 elif st.session_state.current_step == 3:
     st.header("🗺️ Plan d'Action GPS")
-    if st.session_state.project["gps"]:
+    if not st.session_state.project["pivots"]:
+        st.warning("Veuillez d'abord générer les pivots à l'étape 2.")
+    elif st.session_state.project["gps"]:
         st.markdown(st.session_state.project["gps"])
+        st.divider()
         st.warning("⚠️ Pensez à sauvegarder avant de relancer le plan qui écrasera la version actuelle")
         with st.popover("🔄 Affiner & Relancer le GPS (1 crédit)"):
             refine = st.text_area("Ajustement (ex: Plan sur 12 mois)...")
