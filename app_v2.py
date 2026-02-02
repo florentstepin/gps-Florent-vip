@@ -159,4 +159,4 @@ with nav_c1:
     if st.button("🔍 1. Analyse", use_container_width=True, type="primary" if st.session_state.current_step == 1 else "secondary"):
         st.session_state.current_step = 1; st.rerun()
 with nav_c2:
-    if st.button("💡 2. Pivots",
+   if st.button("💡 2. Pivots", use_container_width=True, type="primary" if st.session_state.current_step == 2 else "secondary"):
