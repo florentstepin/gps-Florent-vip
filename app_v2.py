@@ -4,7 +4,6 @@ import google.generativeai as genai
 import json
 import time
 import os
-import urllib.parse
 import uuid 
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -22,10 +21,11 @@ st.markdown("""
     div.stButton > button:hover { background-color: #6246ea; color: white; }
     .nav-active { background-color: #7f5af0 !important; color: white !important; }
     .intro-box { background-color: rgba(127, 90, 240, 0.1); padding: 15px; border-radius: 10px; border: 1px solid #7f5af0; margin-bottom: 20px; }
+    .variant-header { color: #7f5af0; font-weight: bold; border-top: 1px dashed #7f5af0; margin-top: 20px; padding-top: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. CONNEXIONS & SECRETS ---
+# --- 2. CONNEXIONS ---
 try:
     API_GOOGLE = st.secrets["GOOGLE_API_KEY"]
     URL_SUPA = st.secrets["SUPABASE_URL"]
@@ -111,8 +111,8 @@ with st.sidebar:
         with st.popover("❓ Guide & Méthode", use_container_width=True):
             t1, t2, t3 = st.tabs(["💻 Tech", "🧠 Méthode", "💾 Sauvegarde"])
             with t1: st.markdown("**PAS DE F5** : N'actualisez jamais.\n**VEILLE** : Gardez l'écran allumé.")
-            with t2: st.markdown("**DÉTAILS** : Donnez 5-10 lignes de carburant.\n**AFFINAGE** : Utilisez le bouton 'Relancer' pour ajuster.")
-            with t3: st.markdown("**JSON** : Sauvegardez pour reprendre gratuitement.\n**PDF** : Le rapport propre pour Florent.")
+            with t2: st.markdown("**DÉTAILS** : Plus vous êtes précis, plus l'IA est pertinente.")
+            with t3: st.markdown("**JSON** : Sauvegardez pour reprendre gratuitement.\n**PDF** : Le rapport pour Florent.")
 
         st.link_button("⚡ Recharger", LINK_RECHARGE, type="primary", use_container_width=True)
         st.divider()
@@ -159,84 +159,4 @@ with nav_c1:
     if st.button("🔍 1. Analyse", use_container_width=True, type="primary" if st.session_state.current_step == 1 else "secondary"):
         st.session_state.current_step = 1; st.rerun()
 with nav_c2:
-    if st.button("💡 2. Pivots", use_container_width=True, type="primary" if st.session_state.current_step == 2 else "secondary"):
-        st.session_state.current_step = 2; st.rerun()
-with nav_c3:
-    if st.button("🗺️ 3. GPS", use_container_width=True, type="primary" if st.session_state.current_step == 3 else "secondary"):
-        st.session_state.current_step = 3; st.rerun()
-
-st.progress(st.session_state.current_step / 3)
-
-# ETAPE 1 : ANALYSE
-if st.session_state.current_step == 1:
-    st.header("🔍 Analyse Crash-Test")
-    if st.session_state.project["analysis"]:
-        st.markdown(st.session_state.project["analysis"])
-        with st.popover("🔄 Affiner & Relancer une variante (1 crédit)"):
-            refine = st.text_area("Instructions spéciales (Ex: 'Exclure le B2C', 'Ajouter un cas d'usage...')", key="ref1")
-            if st.button("Relancer l'Analyse"):
-                if st.session_state.user['credits'] > 0:
-                    with st.status("Nouvelle analyse en cours..."):
-                        prompt = f"Réanalyse cette idée : {st.session_state.project['idea']}.\nRetour utilisateur : {refine}.\nContexte : {st.session_state.project['context']}"
-                        st.session_state.project["analysis"] = model.generate_content(prompt).text
-                        consume_credit(); st.rerun()
-        st.divider()
-        if st.button("➡️ Passer aux Pivots", use_container_width=True):
-            st.session_state.current_step = 2; st.rerun()
-    else:
-        c1, c2 = st.columns(2)
-        idea = c1.text_area("Votre idée :", height=150)
-        ctx = c2.text_area("Contexte :", height=150)
-        if st.button("Lancer l'Analyse (1 crédit)", use_container_width=True):
-            if idea and st.session_state.user['credits'] > 0:
-                with st.status("Analyse..."):
-                    res = model.generate_content(f"Critique business: {idea}\nCtx: {ctx}").text
-                    st.session_state.project.update({"idea": idea, "context": ctx, "analysis": res})
-                    consume_credit(); st.rerun()
-
-# ETAPE 2 : PIVOTS
-elif st.session_state.current_step == 2:
-    st.header("💡 Pivots Stratégiques")
-    if st.session_state.project["pivots"]:
-        st.markdown(st.session_state.project["pivots"])
-        with st.popover("🔄 Affiner & Relancer une variante (1 crédit)"):
-            refine = st.text_area("Ex: 'Chercher des pivots plus low-cost', 'Exclure l'abonnement'...", key="ref2")
-            if st.button("Relancer les Pivots"):
-                if st.session_state.user['credits'] > 0:
-                    with st.status("Brainstorming..."):
-                        prompt = f"Génère 3 NOUVEAUX pivots pour : {st.session_state.project['idea']}.\nContrainte : {refine}."
-                        st.session_state.project["pivots"] = model.generate_content(prompt).text
-                        consume_credit(); st.rerun()
-        st.divider()
-        col1, col2 = st.columns(2)
-        if col1.button("⬅️ Retour", use_container_width=True): st.session_state.current_step = 1; st.rerun()
-        if col2.button("➡️ Passer au GPS", use_container_width=True): st.session_state.current_step = 3; st.rerun()
-    else:
-        if st.button("Générer les 3 Pivots (1 crédit)", use_container_width=True):
-            with st.status("Brainstorming..."):
-                res = model.generate_content(f"3 pivots pour: {st.session_state.project['idea']}").text
-                st.session_state.project["pivots"] = res
-                consume_credit(); st.rerun()
-
-# ETAPE 3 : GPS
-elif st.session_state.current_step == 3:
-    st.header("🗺️ Plan d'Action GPS")
-    if st.session_state.project["gps"]:
-        st.markdown(st.session_state.project["gps"])
-        with st.popover("🔄 Affiner & Relancer une variante (1 crédit)"):
-            refine = st.text_area("Ex: 'Plan sur 3 mois seulement', 'Ajouter une étape marketing'...", key="ref3")
-            if st.button("Relancer le GPS"):
-                if st.session_state.user['credits'] > 0:
-                    with st.status("Planification..."):
-                        prompt = f"Refais le plan GPS pour : {st.session_state.project['idea']}.\nAjustement : {refine}."
-                        st.session_state.project["gps"] = model.generate_content(prompt).text
-                        consume_credit(); st.rerun()
-        st.divider()
-        if st.button("⬅️ Retour aux Pivots", use_container_width=True):
-            st.session_state.current_step = 2; st.rerun()
-    else:
-        if st.button("Générer le GPS (1 crédit)", use_container_width=True):
-            with st.status("Planification..."):
-                res = model.generate_content(f"Plan GPS pour: {st.session_state.project['idea']}").text
-                st.session_state.project["gps"] = res
-                consume_credit(); st.rerun()
+    if st.button("💡 2. Pivots",
