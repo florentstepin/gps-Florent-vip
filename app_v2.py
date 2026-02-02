@@ -153,10 +153,17 @@ if not st.session_state.user:
 
 st.title("🧠 Stratège IA V2")
 
-# BANDEAU DE NAVIGATION
-nav_c1, nav_c2, nav_c3 = st.columns(3)
-with nav_c1:
+# NAVIGATION PAR BANDEAU (VISUALISATION DES ÉTAPES)
+c_nav1, c_nav2, c_nav3 = st.columns(3)
+with c_nav1:
     if st.button("🔍 1. Analyse", use_container_width=True, type="primary" if st.session_state.current_step == 1 else "secondary"):
-        st.session_state.current_step = 1; st.rerun()
-with nav_c2:
-   if st.button("💡 2. Pivots", use_container_width=True, type="primary" if st.session_state.current_step == 2 else "secondary"):
+        st.session_state.current_step = 1
+        st.rerun()
+with c_nav2:
+    if st.button("💡 2. Pivots", use_container_width=True, type="primary" if st.session_state.current_step == 2 else "secondary"):
+        st.session_state.current_step = 2
+        st.rerun()
+with c_nav3:
+    if st.button("🗺️ 3. GPS", use_container_width=True, type="primary" if st.session_state.current_step == 3 else "secondary"):
+        st.session_state.current_step = 3
+        st.rerun()
