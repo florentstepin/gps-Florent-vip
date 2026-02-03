@@ -1,5 +1,5 @@
 import streamlit as st
-from supabase import create_client
+from supabase import create_client, Client
 import google.generativeai as genai
 import json
 import time
@@ -11,6 +11,34 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 from fpdf import FPDF
+
+# --- CONFIGURATION INITIALE ---
+st.set_page_config(page_title="Stratège IA - V2.5 Pro", page_icon="🧠", layout="wide")
+
+# --- CONNEXIONS OPTIMISÉES (CACHE RESOURCE) ---
+@st.cache_resource
+def get_supabase_client():
+    """Maintient une connexion unique à Supabase sans rechargement inutile"""
+    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+
+@st.cache_resource
+def get_ai_model():
+    """Initialise Gemini 2.5 Pro avec les paramètres de 2026"""
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+    # Configuration du modèle Pro pour une analyse profonde
+    return genai.GenerativeModel('gemini-2.5-pro')
+
+try:
+    supabase = get_supabase_client()
+    model = get_ai_model()
+    # Récupération des secrets pour les emails et Stripe
+    LINK_RECHARGE = st.secrets["LIEN_RECHARGE"]
+    SENDER_EMAIL = st.secrets["EMAIL_SENDER"]
+    SENDER_PASS = st.secrets["EMAIL_PASSWORD"]
+    RECEIVER_EMAIL = st.secrets["EMAIL_RECEIVER"]
+except Exception as e:
+    st.error(f"⚠️ Erreur d'initialisation des services ou secrets : {e}")
+    st.stop()
 
 # --- 1. CONFIGURATION & STYLE ---
 st.set_page_config(page_title="Stratège IA V2", page_icon="🧠", layout="wide")
