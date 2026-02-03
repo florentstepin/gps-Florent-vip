@@ -192,25 +192,35 @@ if st.session_state.current_step == 1:
     if st.session_state.project["analysis"]:
         st.markdown(st.session_state.project["analysis"])
         st.divider()
-        st.warning("⚠️ Pensez à sauvegarder avant de relancer l'analyse qui écrasera la version actuelle")
-        with st.popover("🔄 Affiner & Relancer (1 crédit)"):
+        st.warning("⚠️ Pensez à sauvegarder avant de relancer l'analyse.")
+        
+        with st.popover("🌀 Affiner & Relancer (1 crédit)"):
             refine = st.text_area("Ajustements (ex: focus B2B)...")
             if st.button("Regénérer l'Analyse"):
                 if st.session_state.user['credits'] > 0:
-                    with st.status("Analyse en cours..."):
-                        p = f"Analyse cette idée : {st.session_state.project['idea']}.\nInstruction : {refine}."
-                        st.session_state.project["analysis"] = model.generate_content(p).text
-                        # RESET CASCADE
+                    with st.status("Ré-expertise en cours..."):
+                        p_refine = f"""
+                        # RÉ-EXPERTISE CLINIQUE : {st.session_state.project['idea']}
+                        # AJUSTEMENT DEMANDÉ : {refine}
+                        Applique le Framework D.U.R. Reste froid et impitoyable. 
+                        Verdict final requis : GO, NO-GO ou PIVOT.
+                        """
+                        st.session_state.project["analysis"] = model.generate_content(p_refine).text
+                        # Reset cascade pour forcer la logique de la V2
                         st.session_state.project["pivots"], st.session_state.project["gps"] = "", ""
                         consume_credit(); st.rerun()
-        if st.button("➡️ Suivant : Pivots", use_container_width=True): st.session_state.current_step = 2; st.rerun()
+
+        if st.button("➡️ Suivant : Pivots", use_container_width=True): 
+            st.session_state.current_step = 2; st.rerun()
     else:
         c1, c2 = st.columns(2)
-        idea, ctx = c1.text_area("Votre idée :"), c2.text_area("Contexte :")
-        if st.button("Lancer l'Analyse (1 crédit)"):
+        idea = c1.text_area("Votre idée :", placeholder="Soyez précis...")
+        ctx = c2.text_area("Contexte :", placeholder="Ressources, temps...")
+        
+        if st.button("Lancer l'Audit de Survie (1 crédit)"):
             if idea and st.session_state.user['credits'] > 0:
-                with st.status("Analyse en cours..."):
-                    # ICI : L'indentation est maintenant correcte (décalée à droite)
+                with st.status("Audit clinique en cours..."):
+                    # ICI : L'indentation est maintenant parfaite
                     prompt_master = f"""
                     # RÔLE : Ingénieur Audit (Posture clinique et froide).
                     # MISSION : Analyse D.U.R. de l'idée : {idea}
