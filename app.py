@@ -265,8 +265,21 @@ elif st.session_state.current_step == 2:
         if colB.button("➡️ Suivant : GPS"): st.session_state.current_step = 3; st.rerun()
     else:
         if st.button("Générer les 3 Pivots (1 crédit)"):
-            with st.status("Analyse en cours..."):
-                res = model.generate_content(f"3 pivots pour: {st.session_state.project['idea']}").text
+            with st.status("Calcul des trajectoires..."):
+                # PROMPT HARMONISÉ (Format descriptif)
+                prompt_init = f"""
+                Basé sur l'idée : {st.session_state.project['idea']}
+                Analyse : {st.session_state.project['analysis']}
+
+                Mission : Propose 3 pivots stratégiques numérotés 1, 2 et 3.
+                LIVRABLE : 
+                1. Détail de chaque pivot.
+                2. TABLEAU COMPARATIF final avec ces critères : 
+                   - Concept Clé, Cible Principale, Avantage Concurrentiel, 
+                   - Modèle de Revenus, Complexité de Mise en Œuvre, Potentiel de Marge.
+                Note : Utilise des descriptions textuelles (pas de notes /10).
+                """
+                res = model.generate_content(prompt_init).text
                 st.session_state.project["pivots"] = res
                 consume_credit(); st.rerun()
 
