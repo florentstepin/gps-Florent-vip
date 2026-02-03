@@ -218,7 +218,7 @@ if st.session_state.current_step == 1:
                         # 4. RESET DES ÉTAPES SUIVANTES (Cascade)
                         st.session_state.project["pivots"], st.session_state.project["gps"] = "", ""
                         consume_credit(); st.rerun()
-        if st.button("➡️ Suivant : Pivots", use_container_width=True): 
+    if st.button("➡️ Suivant : Pivots", use_container_width=True): 
             st.session_state.current_step = 2; st.rerun()
     else:
         c1, c2 = st.columns(2)
