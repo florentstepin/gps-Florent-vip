@@ -194,22 +194,30 @@ if st.session_state.current_step == 1:
         st.divider()
         st.warning("⚠️ Pensez à sauvegarder avant de relancer l'analyse.")
         
-        with st.popover("🌀 Affiner & Relancer (1 crédit)"):
+    with st.popover("🌀 Affiner & Relancer (1 crédit)"):
+            # 1. On crée la zone pour taper l'ajustement
             refine = st.text_area("Ajustements (ex: focus B2B)...")
+            
+            # 2. On crée le bouton qui déclenche le calcul
             if st.button("Regénérer l'Analyse"):
                 if st.session_state.user['credits'] > 0:
-                    with st.status("Ré-expertise en cours..."):
+                    with st.status("Ré-expertise clinique en cours..."):
+                        # 3. LE NOUVEAU PROMPT (votre bloc de positionnement.png)
                         p_refine = f"""
-                        # RÉ-EXPERTISE CLINIQUE : {st.session_state.project['idea']}
-                        # AJUSTEMENT DEMANDÉ : {refine}
-                        Applique le Framework D.U.R. Reste froid et impitoyable. 
-                        Verdict final requis : GO, NO-GO ou PIVOT.
+                        # RÔLE : Ingénieur Audit Stratégique (Posture clinique et froide).
+                        # MISSION : Ré-expertise D.U.R. suite à ajustement.
+                        # IDÉE : {st.session_state.project['idea']}
+                        # NOUVEL ANGLE/AJUSTEMENT : {refine}
+                        
+                        1. Scores D.U.R. (/10) : Douloureux, Urgent, Reconnu.
+                        2. Impact de l'ajustement sur les Fractures Structurelles.
+                        3. NOUVEAU VERDICT : **GO**, **NO-GO** ou **PIVOT**.
                         """
                         st.session_state.project["analysis"] = model.generate_content(p_refine).text
-                        # Reset cascade pour forcer la logique de la V2
+                        
+                        # 4. RESET DES ÉTAPES SUIVANTES (Cascade)
                         st.session_state.project["pivots"], st.session_state.project["gps"] = "", ""
                         consume_credit(); st.rerun()
-
         if st.button("➡️ Suivant : Pivots", use_container_width=True): 
             st.session_state.current_step = 2; st.rerun()
     else:
