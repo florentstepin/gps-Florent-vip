@@ -126,7 +126,9 @@ def consume_credit():
         new_val = max(0, st.session_state.user['credits'] - 1)
         supabase.table("users").update({"credits": new_val}).eq("email", st.session_state.user['email']).execute()
         st.session_state.user['credits'] = new_val
-
+        if 'total_runs' in st.session_state.user:
+            st.session_state.user['total_runs'] += 1
+            
 # --- 5. SIDEBAR (GUIDE RESTAURÉ) ---
 with st.sidebar:
     if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
