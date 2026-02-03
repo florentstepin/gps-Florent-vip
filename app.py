@@ -210,7 +210,8 @@ if st.session_state.current_step == 1:
         if st.button("Lancer l'Analyse (1 crédit)"):
             if idea and st.session_state.user['credits'] > 0:
                 with st.status("Analyse en cours..."):
-                prompt_master = f"""
+                    # ICI : L'indentation est maintenant correcte (décalée à droite)
+                    prompt_master = f"""
                     # RÔLE : Ingénieur Audit (Posture clinique et froide).
                     # MISSION : Analyse D.U.R. de l'idée : {idea}
                     # CONTEXTE : {ctx}
