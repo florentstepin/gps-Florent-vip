@@ -273,47 +273,41 @@ elif st.session_state.current_step == 3:
     st.header("🗺️ Plan d'Action GPS")
     
     if not st.session_state.project["pivots"]:
-        st.warning("⚠️ Veuillez d'abord générer des pivots à l'étape 2 pour pouvoir tracer un plan d'action.")
+        st.warning("⚠️ Veuillez d'abord générer des pivots à l'étape 2.")
     
     elif st.session_state.project["gps"]:
-        # Affichage du GPS existant
         st.markdown(st.session_state.project["gps"])
-        st.divider()
-        st.warning("⚠️ Pensez à sauvegarder avant de relancer le plan qui écrasera la version actuelle")
-        with st.popover("🔄 Affiner & Relancer le GPS (1 crédit)"):
-            refine = st.text_area("Ajustement (ex: Plan sur 6 mois, focus vente directe)...")
-            if st.button("Regénérer le Plan"):
-                if st.session_state.user['credits'] > 0:
-                    with st.status("Analyse en cours..."):
-                        p = f"Refais le plan GPS pour : {st.session_state.project['idea']}.\nAjustement demandé : {refine}.\nContexte des pivots choisis précédemment : {st.session_state.project['pivots']}"
-                        st.session_state.project["gps"] = model.generate_content(p).text
-                        consume_credit(); st.rerun()
-        if st.button("⬅️ Retour aux Pivots", use_container_width=True):
-            st.session_state.current_step = 2; st.rerun()
-            
+        if st.button("🔄 Recalculer sur un autre angle"):
+            st.session_state.project["gps"] = ""; st.rerun()
+    
     else:
-        # PHASE DE CHOIX AVANT GÉNÉRATION
-        st.info("🎯 **Dernière ligne droite.** Sur quel pivot ou angle stratégique voulez-vous construire votre plan d'action ?")
+        st.info("🎯 **Dernière étape.** Quel angle stratégique avez-vous choisi ?")
         
-        with st.expander("🔍 Rappel de vos pivots générés", expanded=False):
-            st.markdown(st.session_state.project["pivots"], unsafe_allow_html=True)
-        
-        pivot_selection = st.text_area("Indiquez ici le pivot choisi (ex: 'Le pivot 2' ou 'L'approche hybride') :", 
-                                       placeholder="Copiez-collez l'essentiel du pivot qui vous intéresse...")
+        # Rappel des pivots pour faciliter le copier-coller
+        with st.expander("🔍 Revoir vos pivots générés", expanded=False):
+            st.markdown(st.session_state.project["pivots"])
+            
+        pivot_selectionne = st.text_area("Copiez ici le pivot qui vous intéresse :", 
+                                        placeholder="Ex: Pivot n°2 : L'approche B2B...")
 
-        if st.button("Générer mon GPS sur-mesure (1 crédit)", use_container_width=True):
-            if pivot_selection:
-                with st.status("Analyse en cours..."):
-                    # Prompt forçant l'IA à se concentrer sur le choix de l'utilisateur
-                    p = f"""Génère un plan d'action GPS détaillé pour l'idée : {st.session_state.project['idea']}.
-                    CONTRANTE : Tu dois impérativement baser ce plan sur ce pivot précis : {pivot_selection}.
-                    Ignore les autres pivots sauf s'ils complètent celui-ci.
-                    Voici l'historique complet pour ton analyse : {st.session_state.project['pivots']}"""
+        if st.button("Tracer mon GPS sur-mesure (1 crédit)", use_container_width=True):
+            if pivot_selectionne:
+                with st.status("Génération de la feuille de route..."):
+                    prompt_gps = f"""
+                    Tu es un Directeur des Opérations expert en exécution.
+                    IDÉE : {st.session_state.project['idea']}
+                    ANGLE CHOISI : {pivot_selectionne}
                     
-                    st.session_state.project["gps"] = model.generate_content(p).text
+                    Génère un plan GPS (Goal, Path, Strategy) concret :
+                    - LA VISION : L'objectif final.
+                    - MOIS 1 : 3 actions prioritaires.
+                    - MOIS 3 : Structure & Acquisition.
+                    - L'ALERTE ROUGE : Le signal précis montrant que ce pivot échoue.
+                    """
+                    st.session_state.project["gps"] = model.generate_content(prompt_gps).text
                     consume_credit(); st.rerun()
             else:
-                st.error("Veuillez préciser le pivot choisi pour que l'IA puisse tracer le plan.")
+                st.error("Veuillez copier un pivot pour lancer le plan d'action.")
         
         if st.button("⬅️ Retour aux Pivots"):
             st.session_state.current_step = 2; st.rerun()
