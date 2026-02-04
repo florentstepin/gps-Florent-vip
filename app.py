@@ -169,6 +169,13 @@ if not st.session_state.user:
     if st.button("Connexion"):
         res = supabase.table("users").select("*").eq("email", em.strip().lower()).execute()
         if res.data: st.session_state.user = res.data[0]; st.rerun()
+        else:new_user = {"email": email_clean, "credits": 2, "total_runs": 0}
+            supabase.table("users").insert(new_user).execute()
+            st.session_state.user = new_user
+            st.success("Bienvenue ! Compte créé avec 2 crédits offerts.")
+            st.rerun()
+        else:
+            st.warning("Veuillez saisir une adresse email.")
     st.stop()
 
 st.title("🧠 Stratège IA V2")
