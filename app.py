@@ -15,7 +15,7 @@ from fpdf import FPDF
 # --- 1. CONFIGURATION INITIALE ---
 st.set_page_config(page_title="Stratège IA - V2.5 Pro", page_icon="🧠", layout="wide")
 
-# --- 2. CONNEXIONS OPTIMISÉES (CACHE RESOURCE) ---
+# --- 2. CONNEXIONS (CACHE RESOURCE) ---
 @st.cache_resource
 def get_supabase_client():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
@@ -33,7 +33,7 @@ try:
     SENDER_PASS = st.secrets["EMAIL_PASSWORD"]
     RECEIVER_EMAIL = st.secrets["EMAIL_RECEIVER"]
 except Exception as e:
-    st.error(f"⚠️ Erreur d'initialisation : {e}")
+    st.error(f"⚠️ Erreur Secrets : {e}")
     st.stop()
 
 # --- 3. STYLE CSS ---
@@ -46,13 +46,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 4. INITIALISATION DU SESSION STATE ---
+# --- 4. INITIALISATION ---
 if "user" not in st.session_state: st.session_state.user = None
 if "current_step" not in st.session_state: st.session_state.current_step = 1
 if "project" not in st.session_state:
     st.session_state.project = {"idea": "", "context": "", "analysis": "", "pivots": "", "gps": ""}
 
-# --- 5. FONCTIONS UTILES ---
+# --- 5. FONCTIONS (PDF, EMAIL, CREDITS) ---
 def create_pdf_bytes(data):
     pdf = FPDF()
     pdf.add_page()
@@ -62,7 +62,7 @@ def create_pdf_bytes(data):
     sections = [
         ("IDEE DU PROJET", data['idea']),
         ("CONTEXTE", data['context']),
-        ("1. ANALYSE CRASH-TEST", data['analysis']),
+        ("1. ANALYSE CRASH-TEST (D.U.R.)", data['analysis']),
         ("2. PIVOTS STRATEGIQUES", data['pivots']),
         ("3. PLAN D'ACTION GPS", data['gps'])
     ]
@@ -75,6 +75,19 @@ def create_pdf_bytes(data):
         pdf.ln(5)
     return bytes(pdf.output())
 
+def send_audit_email(user_msg, pdf_content):
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SENDER_EMAIL; msg['To'] = RECEIVER_EMAIL
+        msg['Subject'] = f"🚀 DEMANDE AUDIT : {st.session_state.user['email']}"
+        msg.attach(MIMEText(f"Message : {user_msg}\nClient : {st.session_state.user['email']}", 'plain'))
+        part = MIMEBase('application', 'octet-stream'); part.set_payload(pdf_content)
+        encoders.encode_base64(part); part.add_header('Content-Disposition', f"attachment; filename= Audit.pdf")
+        msg.attach(part)
+        server = smtplib.SMTP("smtp.gmail.com", 587); server.starttls(); server.login(SENDER_EMAIL, SENDER_PASS)
+        server.send_message(msg); server.quit(); return True
+    except: return False
+
 def consume_credit():
     if st.session_state.user:
         new_val = max(0, st.session_state.user['credits'] - 1)
@@ -83,11 +96,10 @@ def consume_credit():
         if 'total_runs' in st.session_state.user:
             st.session_state.user['total_runs'] += 1
 
-# --- 6. ACCÈS & CRÉATION DE COMPTE (FIXÉ UUID) ---
+# --- 6. ACCÈS (FIXÉ UUID) ---
 if not st.session_state.user:
     st.title("🚀 Accès Stratège IA")
-    em = st.text_input("Email Pro", placeholder="votre@email.com")
-    
+    em = st.text_input("Email Pro")
     if st.button("Accéder à mon espace", use_container_width=True):
         email_clean = em.strip().lower()
         if email_clean:
@@ -95,45 +107,55 @@ if not st.session_state.user:
                 res = supabase.table("users").select("*").eq("email", email_clean).execute()
                 if res.data:
                     st.session_state.user = res.data[0]
-                    st.success("Connexion réussie...")
                     st.rerun()
                 else:
-                    # CRÉATION AVEC CODE UNIQUE (UUID)
-                    new_user_data = {
-                        "access_code": str(uuid.uuid4()), 
-                        "email": email_clean,
-                        "credits": 2,
-                        "total_runs": 0
-                    }
-                    insert_res = supabase.table("users").insert(new_user_data).execute()
+                    new_user = {"access_code": str(uuid.uuid4()), "email": email_clean, "credits": 2, "total_runs": 0}
+                    insert_res = supabase.table("users").insert(new_user).execute()
                     if insert_res.data:
                         st.session_state.user = insert_res.data[0]
-                        st.success("Bienvenue ! Compte créé (2 crédits offerts).")
+                        st.success("Bienvenue ! Compte créé.")
                         st.rerun()
             except Exception as e:
-                st.error(f"❌ Erreur base de données : {e}")
-        else:
-            st.warning("Email requis.")
+                st.error(f"Erreur : {e}")
+        else: st.warning("Email requis.")
     st.stop()
 
-# --- 7. SIDEBAR ---
+# --- 7. SIDEBAR (GUIDE & EXPERTISE RESTAURÉS) ---
 with st.sidebar:
+    if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
     st.info(f"👤 {st.session_state.user['email']}\n🎯 **{st.session_state.user['credits']} Crédits**")
-    st.link_button("⚡ Recharger", LINK_RECHARGE, type="primary", use_container_width=True)
     
-    with st.expander("📂 Export & Import", expanded=False):
+    # GUIDE DE SURVIE
+    with st.popover("❓ Guide de Survie & Méthode", use_container_width=True):
+        t1, t2, t3 = st.tabs(["💻 Tech", "🧠 Méthode", "💾 Sauvegarde"])
+        with t1: st.markdown("**PAS DE F5** : N'actualisez jamais.\n**VEILLE** : Gardez l'écran allumé.")
+        with t2: st.markdown("**DÉTAILS** : Donnez du carburant (5-10 lignes).\n**AFFINAGE** : Utilisez 'Relancer' pour ajuster.")
+        with t3: st.markdown("**JSON** : Sauvegardez pour reprendre plus tard.\n**PDF** : Votre rapport final.")
+
+    st.link_button("⚡ Recharger", LINK_RECHARGE, type="primary", use_container_width=True)
+    st.divider()
+
+    with st.expander("📂 Gestion de Session", expanded=False):
         if st.session_state.project["analysis"]:
-            st.download_button("📄 Telecharger PDF", create_pdf_bytes(st.session_state.project), "Rapport.pdf", "application/pdf", use_container_width=True)
+            st.download_button("📄 Telecharger PDF", create_pdf_bytes(st.session_state.project), "Rapport.pdf", use_container_width=True)
+        st.download_button("💾 Sauver JSON", json.dumps({"data": st.session_state.project}, indent=4), "projet.json", use_container_width=True)
         up = st.file_uploader("📥 Importer JSON", type="json")
         if up and st.button("✅ Valider l'Import"):
             st.session_state.project.update(json.load(up).get("data", {}))
             st.rerun()
 
+    with st.expander("💎 Expertise Humaine", expanded=True):
+        if st.session_state.project["analysis"]:
+            msg_exp = st.text_area("Mot pour Florent :", placeholder="Questions, demande d'audit...")
+            if st.button("🚀 Réserver mon Audit PDF"):
+                if send_audit_email(msg_exp, create_pdf_bytes(st.session_state.project)): st.success("Dossier envoyé !")
+                else: st.error("Erreur d'envoi.")
+        else: st.warning("Complétez l'étape 1 pour débloquer.")
+
 # --- 8. CORPS DE L'APPLI ---
 st.title("🧠 Stratège IA V2.5")
-st.markdown("<div class='intro-box'><b>Usine à Stratégie</b> : Suivez les 3 étapes.</div>", unsafe_allow_html=True)
+st.markdown("<div class='intro-box'><b>Bienvenue.</b> Suivez les 3 étapes pour transformer votre idée en plan d'action.</div>", unsafe_allow_html=True)
 
-# NAVIGATION
 nav1, nav2, nav3 = st.columns(3)
 with nav1:
     if st.button("🔍 1. Analyse", use_container_width=True, type="primary" if st.session_state.current_step == 1 else "secondary"):
@@ -145,69 +167,69 @@ with nav3:
     if st.button("🗺️ 3. GPS", use_container_width=True, type="primary" if st.session_state.current_step == 3 else "secondary"):
         st.session_state.current_step = 3; st.rerun()
 
-# ÉTAPE 1 : ANALYSE
+st.progress(st.session_state.current_step / 3)
+
+# ÉTAPE 1 : ANALYSE (PROMPT DUR)
 if st.session_state.current_step == 1:
-    st.header("🔍 Analyse Crash-Test")
+    st.header("🔍 Analyse Crash-Test D.U.R.")
     if st.session_state.project["analysis"]:
         st.markdown(st.session_state.project["analysis"])
-        with st.popover("🌀 Relancer (1 crédit)"):
-            refine = st.text_area("Ajustements...")
+        with st.popover("🌀 Affiner & Relancer (1 crédit)"):
+            refine = st.text_area("Ajustements (ex: focus B2B)...")
             if st.button("Regénérer"):
                 if st.session_state.user['credits'] > 0:
-                    with st.status("Analyse..."):
-                        p = f"Analyse D.U.R. de {st.session_state.project['idea']}. Ajustement: {refine}. Verdict: GO/NO-GO."
+                    with st.status("Ré-expertise clinique..."):
+                        p = f"MISSION : Ré-expertise D.U.R. IDÉE : {st.session_state.project['idea']}. AJUSTEMENT : {refine}. 1. Scores D.U.R. (/10). 2. Fractures Structurelles. 3. Verdict: GO/NO-GO/PIVOT."
                         st.session_state.project["analysis"] = model.generate_content(p).text
                         st.session_state.project["pivots"], st.session_state.project["gps"] = "", ""
                         consume_credit(); st.rerun()
     else:
         c1, c2 = st.columns(2)
-        idea = c1.text_area("L'idée :")
-        ctx = c2.text_area("Le contexte :")
+        idea = c1.text_area("Votre idée :")
+        ctx = c2.text_area("Contexte :")
         if st.button("Lancer l'Audit (1 crédit)"):
             if idea and st.session_state.user['credits'] > 0:
-                with st.status("Audit..."):
-                    p = f"Audit D.U.R. complet pour : {idea}. Contexte : {ctx}."
+                with st.status("Audit clinique..."):
+                    p = f"Analyse D.U.R. IDÉE : {idea}. CONTEXTE : {ctx}. 1. Scores D.U.R. (/10). 2. Fractures Structurelles. 3. Verdict: GO/NO-GO/PIVOT."
                     res = model.generate_content(p).text
                     st.session_state.project.update({"idea": idea, "context": ctx, "analysis": res})
                     consume_credit(); st.rerun()
 
-# ÉTAPE 2 : PIVOTS
+# ÉTAPE 2 : PIVOTS (PROMPT HARMONISÉ TABLEAU)
 elif st.session_state.current_step == 2:
     st.header("💡 Pivots Stratégiques")
     if not st.session_state.project["analysis"]:
-        st.warning("Faites l'étape 1.")
+        st.warning("Veuillez générer l'analyse à l'étape 1.")
     elif st.session_state.project["pivots"]:
         st.markdown(st.session_state.project["pivots"], unsafe_allow_html=True)
         with st.popover("➕ Plus de pivots (1 crédit)"):
-            refine = st.text_area("Orientation...")
-            if st.button("Variantes 4-6"):
+            refine = st.text_area("Orientation (ex: pivots technologiques)...")
+            if st.button("Générer 4, 5 et 6"):
                 if st.session_state.user['credits'] > 0:
-                    with st.status("Calcul..."):
-                        p = f"Pivots 4-6 pour {st.session_state.project['idea']}. Orientation: {refine}. Tableau requis."
-                        st.session_state.project["pivots"] += f"\n\n{model.generate_content(p).text}"
+                    with st.status("Analyse..."):
+                        p = f"IDÉE : {st.session_state.project['idea']}. Orientation: {refine}. Génère 3 NOUVEAUX pivots (4, 5, 6). REQUIS : TABLEAU COMPARATIF (Concept Clé, Cible, Avantage, Revenus, Complexité, Potentiel Marge). Pas de notes /10."
+                        st.session_state.project["pivots"] += f"\n\n<div class='variant-divider'>🔄 Variante : {refine}</div>\n\n{model.generate_content(p).text}"
                         consume_credit(); st.rerun()
     else:
-        if st.button("Générer 3 Pivots (1 crédit)"):
-            with st.status("Calcul..."):
-                p = f"3 pivots stratégiques pour {st.session_state.project['idea']}. Tableau comparatif requis."
+        if st.button("Générer les 3 Pivots (1 crédit)"):
+            with st.status("Calcul des trajectoires..."):
+                p = f"IDÉE : {st.session_state.project['idea']}. ANALYSE : {st.session_state.project['analysis']}. Propose 3 pivots (1, 2, 3). REQUIS : TABLEAU COMPARATIF (Concept Clé, Cible, Avantage, Revenus, Complexité, Potentiel Marge). Pas de notes /10."
                 st.session_state.project["pivots"] = model.generate_content(p).text
                 consume_credit(); st.rerun()
 
-# ÉTAPE 3 : GPS
+# ÉTAPE 3 : GPS (PROMPT ACTION)
 elif st.session_state.current_step == 3:
-    st.header("🗺️ Plan GPS")
+    st.header("🗺️ Plan d'Action GPS")
     if not st.session_state.project["pivots"]:
-        st.warning("Faites l'étape 2.")
+        st.warning("Générez des pivots d'abord.")
     elif st.session_state.project["gps"]:
         st.markdown(st.session_state.project["gps"])
-        if st.button("🔄 Recalculer"):
-            st.session_state.project["gps"] = ""; st.rerun()
+        if st.button("🔄 Recalculer"): st.session_state.project["gps"] = ""; st.rerun()
     else:
-        with st.expander("Revoir les pivots"): st.markdown(st.session_state.project["pivots"])
         sel = st.text_area("Copiez le pivot choisi :")
-        if st.button("Tracer le GPS (1 crédit)"):
+        if st.button("Tracer mon GPS (1 crédit)"):
             if sel:
-                with st.status("Tracé..."):
-                    p = f"Plan GPS pour le pivot : {sel}. Vision, Mois 1, Mois 3, Alerte rouge."
+                with st.status("Génération..."):
+                    p = f"IDÉE : {st.session_state.project['idea']}. PIVOT CHOISI : {sel}. Génère un plan GPS : Vision, Mois 1 (3 actions), Mois 3 (Structure/Acquisition), Alerte Rouge."
                     st.session_state.project["gps"] = model.generate_content(p).text
                     consume_credit(); st.rerun()
