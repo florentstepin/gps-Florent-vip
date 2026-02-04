@@ -169,23 +169,30 @@ if not st.session_state.user:
     if st.button("Connexion"):
         email_clean = em.strip().lower()
         if email_clean:
-            # 1. On vérifie si l'utilisateur existe déjà
+            # On cherche l'utilisateur
             res = supabase.table("users").select("*").eq("email", email_clean).execute()
             
             if res.data:
-                # CAS A : Utilisateur connu
+                # Utilisateur existant -> Connexion
                 st.session_state.user = res.data[0]
                 st.rerun()
             else:
-                # CAS B : Nouvel utilisateur -> CRÉATION (Indentation corrigée ici)
+                # NOUVEAU : Tentative de création de compte
                 new_user = {"email": email_clean, "credits": 2, "total_runs": 0}
-                supabase.table("users").insert(new_user).execute()
-                st.session_state.user = new_user
-                st.success("Bienvenue ! Compte créé avec 2 crédits offerts.")
-                st.rerun()
+                try:
+                    # C'est cette ligne (182) qui déclenche l'APIError
+                    supabase.table("users").insert(new_user).execute()
+                    st.session_state.user = new_user
+                    st.success("Bienvenue ! Votre compte a été créé.")
+                    st.rerun()
+                except Exception as e:
+                    # Message d'erreur propre au lieu du crash système
+                    st.error(f"⚠️ Accès refusé par la base de données : {e}")
+                    st.info("Vérifiez les permissions (RLS) dans votre console Supabase.")
         else:
-            st.warning("Veuillez saisir une adresse email.")
+            st.warning("Veuillez saisir un email.")
     st.stop()
+
 st.title("🧠 Stratège IA V2")
 st.markdown("<div class='intro-box'><b>Bienvenue dans votre Usine à Stratégie.</b><br>Suivez les 3 étapes pour transformer une idée floue en plan d'action concret. À tout moment, sollicitez Florent pour un audit approfondi.</div>", unsafe_allow_html=True)
 
