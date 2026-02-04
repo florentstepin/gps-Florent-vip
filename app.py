@@ -174,13 +174,19 @@ if not st.session_state.user:
             
             if res.data:
                 # Utilisateur existant -> Connexion
-                st.session_state.user = res.data[0]
-                st.rerun()
-            else:
-                # NOUVEAU : Tentative de création de compte
-                new_user = {"email": email_clean, "credits": 2, "total_runs": 0}
+                # NOUVEAU : On ajoute 'access_code' pour satisfaire la clé primaire
+                new_user = {
+                    "email": email_clean, 
+                    "credits": 2, 
+                    "total_runs": 0,
+                    "access_code": "VIP-2026"  # <--- CETTE LIGNE EST VITALE
+                }
                 try:
-                    # C'est cette ligne (182) qui déclenche l'APIError
+                    # On insère les données (incluant le code d'accès)
+                    supabase.table("users").insert(new_user).execute()
+                    st.session_state.user = new_user
+                    st.success("Bienvenue ! Votre compte a été créé avec 2 crédits.")
+                    st.rerun()
                     supabase.table("users").insert(new_user).execute()
                     st.session_state.user = new_user
                     st.success("Bienvenue ! Votre compte a été créé.")
