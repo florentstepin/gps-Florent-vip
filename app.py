@@ -167,17 +167,25 @@ if not st.session_state.user:
     st.title("🚀 Accès Stratège IA")
     em = st.text_input("Email Pro")
     if st.button("Connexion"):
-        res = supabase.table("users").select("*").eq("email", em.strip().lower()).execute()
-        if res.data: st.session_state.user = res.data[0]; st.rerun()
-        else:new_user = {"email": email_clean, "credits": 2, "total_runs": 0}
-            supabase.table("users").insert(new_user).execute()
-            st.session_state.user = new_user
-            st.success("Bienvenue ! Compte créé avec 2 crédits offerts.")
-            st.rerun()
+        email_clean = em.strip().lower()
+        if email_clean:
+            # 1. On vérifie si l'utilisateur existe déjà
+            res = supabase.table("users").select("*").eq("email", email_clean).execute()
+            
+            if res.data:
+                # CAS A : Utilisateur connu
+                st.session_state.user = res.data[0]
+                st.rerun()
+            else:
+                # CAS B : Nouvel utilisateur -> CRÉATION (Indentation corrigée ici)
+                new_user = {"email": email_clean, "credits": 2, "total_runs": 0}
+                supabase.table("users").insert(new_user).execute()
+                st.session_state.user = new_user
+                st.success("Bienvenue ! Compte créé avec 2 crédits offerts.")
+                st.rerun()
         else:
             st.warning("Veuillez saisir une adresse email.")
     st.stop()
-
 st.title("🧠 Stratège IA V2")
 st.markdown("<div class='intro-box'><b>Bienvenue dans votre Usine à Stratégie.</b><br>Suivez les 3 étapes pour transformer une idée floue en plan d'action concret. À tout moment, sollicitez Florent pour un audit approfondi.</div>", unsafe_allow_html=True)
 
