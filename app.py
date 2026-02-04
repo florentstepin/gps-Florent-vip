@@ -162,41 +162,54 @@ with st.sidebar:
                     else: st.error("Erreur d'envoi.")
             else: st.warning("Faites l'étape 1 pour débloquer.")
 
-# --- 6. CORPS DE L'APPLI ---
+# --- 6. BLOC ACCÈS & CRÉATION (SÉCURITÉ MAXIMALE) ---
 if not st.session_state.user:
     st.title("🚀 Accès Stratège IA")
-    em = st.text_input("Email Pro")
-    if st.button("Connexion"):
+    st.markdown("---")
+    em = st.text_input("Email Pro", placeholder="votre@email.com")
+    
+    if st.button("Accéder à mon espace", use_container_width=True):
         email_clean = em.strip().lower()
         if email_clean:
-            # On cherche l'utilisateur
-            res = supabase.table("users").select("*").eq("email", email_clean).execute()
+            try:
+                # 1. Recherche de l'utilisateur existant
+                res = supabase.table("users").select("*").eq("email", email_clean).execute()
+                
+                if res.data:
+                    # CAS A : L'utilisateur est déjà dans la base
+                    st.session_state.user = res.data[0]
+                    st.success("Connexion réussie...")
+                    time.sleep(1) # Petit délai pour le feedback visuel
+                    st.rerun()
+                else:
+                    # CAS B : Nouvel utilisateur
+                    # On inclut TOUTES les colonnes critiques (notamment access_code qui est ta PK)
+                    new_user_data = {
+                        "email": email_clean,
+                        "credits": 2,
+                        "total_runs": 0,
+                        "access_code": "STRATEGE-2026"
+                    }
+                    
+                    # Tentative d'insertion
+                    insert_res = supabase.table("users").insert(new_user_data).execute()
+                    
+                    if insert_res.data:
+                        st.session_state.user = insert_res.data[0]
+                        st.success("Bienvenue ! Votre compte a été créé (2 crédits offerts).")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("La création a échoué. Vérifiez vos permissions de table.")
             
-            if res.data:
-                # Utilisateur existant -> Connexion
-                # NOUVEAU : On ajoute 'access_code' pour satisfaire la clé primaire
-                new_user = {
-                    "email": email_clean, 
-                    "credits": 2, 
-                    "total_runs": 0,
-                    "access_code": "VIP-2026"  # <--- CETTE LIGNE EST VITALE
-                }
-                try:
-                    # On insère les données (incluant le code d'accès)
-                    supabase.table("users").insert(new_user).execute()
-                    st.session_state.user = new_user
-                    st.success("Bienvenue ! Votre compte a été créé avec 2 crédits.")
-                    st.rerun()
-                    supabase.table("users").insert(new_user).execute()
-                    st.session_state.user = new_user
-                    st.success("Bienvenue ! Votre compte a été créé.")
-                    st.rerun()
-                except Exception as e:
-                    # Message d'erreur propre au lieu du crash système
-                    st.error(f"⚠️ Accès refusé par la base de données : {e}")
-                    st.info("Vérifiez les permissions (RLS) dans votre console Supabase.")
+            except Exception as e:
+                # Capture l'erreur API (RLS, PK, etc.) sans faire crasher l'appli
+                st.error(f"❌ Erreur de base de données : {e}")
+                st.info("Vérifiez que la RLS est désactivée dans Supabase (ALTER TABLE users DISABLE ROW LEVEL SECURITY;)")
         else:
-            st.warning("Veuillez saisir un email.")
+            st.warning("Veuillez saisir un email valide.")
+    
+    # BLOQUE LE RESTE DE L'APPLI TANT QUE L'UTILISATEUR N'EST PAS CONNECTÉ
     st.stop()
 
 st.title("🧠 Stratège IA V2")
