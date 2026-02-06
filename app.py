@@ -36,19 +36,23 @@ except Exception as e:
     st.error(f"⚠️ Erreur configuration : {e}")
     st.stop()
 
-# --- 3. STYLE CSS (BOUTONS, H3 & NAVIGATION) ---
+# --- 3. STYLE CSS (BOUTONS H2, COULEURS & H3) ---
 st.markdown("""
     <style>
     /* Bouton ROUGE : Crédits supplémentaires */
     div.stButton > button[kind="primary"] { background-color: #e02e2e !important; color: white !important; border: none !important; }
     
-    /* GRANDS BOUTONS DE NAVIGATION HAUTE */
+    /* NAVIGATION HAUTE : TAILLE H2 (2rem) */
     .st-key-nav_1 button, .st-key-nav_2 button, .st-key-nav_3 button {
-        height: 4.5em !important;
-        font-size: 1.2rem !important;
-        font-weight: 700 !important;
-        border-radius: 12px !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+        height: 5em !important;
+        font-size: 2rem !important; /* Équivalent H2 */
+        font-weight: 800 !important;
+        border-radius: 15px !important;
+        border: 2px solid #7f5af0 !important;
+        transition: transform 0.2s ease;
+    }
+    .st-key-nav_1 button:hover, .st-key-nav_2 button:hover, .st-key-nav_3 button:hover {
+        transform: scale(1.02);
     }
 
     /* Expander VERT : Expertise Humaine */
@@ -62,25 +66,29 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 4. DIALOG : GUIDE QUICK-START MIS À JOUR ---
+# --- 4. DIALOG : GUIDE QUICK-START COMPLET ---
 @st.dialog("🚀 Guide Quick-Start : Maîtrisez Stratège IA en 5 minutes")
 def show_quick_start():
     st.markdown("""
-    ### 💡 La Règle d'Or : "Le Carburant"
-    Soyez précis. Une IA bien nourrie est une IA redoutable. Détaillez votre cible, vos ressources et vos contraintes dès l'étape 1.
+    ### 🛠️ Votre Parcours en 3 Étapes
+    | Étape | Action | Objectif |
+    | :--- | :--- | :--- |
+    | **01. Audit D.U.R.** | Saisissez idée + contexte | Verdict : **GO, NO-GO ou PIVOT** |
+    | **02. Les Pivots** | Explorez 3 trajectoires | Comparer modèles, cibles & marges |
+    | **03. Plan d'Action** | Copiez votre pivot favori | Feuille de route : **Vision, M1 & M3** |
 
     ### 🧠 3 Astuces pour réussir
     1. **Affiner** : Utilisez le bouton dédié pour ajuster vos résultats sans frais.
     2. **Sauver** : Exportez en **JSON** pour reprendre votre session plus tard gratuitement.
-    3. **Partager** : Exportez votre dossier en **PDF**. C'est le support idéal pour présenter votre vision à des partenaires ou investisseurs.
+    3. **Partager** : Exportez votre dossier en **PDF**. C'est le support idéal pour vos partenaires.
 
     ### 💎 Expertise & Audit Qualifié
-    L'audit humain par Florent est **exclusivement réservé aux projets à haut potentiel**. Pour garantir une expertise de qualité et éviter le "tourisme entrepreneurial", chaque demande fait l'objet d'une pré-qualification. Assurez-vous d'avoir complété les 3 étapes avant toute sollicitation.
+    L'audit humain par Florent est **exclusivement réservé aux projets à haut potentiel**. Pour garantir une expertise de qualité et éviter le "tourisme entrepreneurial", chaque demande fait l'objet d'une pré-qualification (Importance / Attente). 
     
     *Fermez cette fenêtre via la croix en haut à droite.*
     """)
 
-# --- 5. FONCTIONS MÉTIER (PDF, EMAIL, CREDITS) ---
+# --- 5. FONCTIONS MÉTIER ---
 def create_pdf_bytes(data):
     pdf = FPDF()
     pdf.add_page()
@@ -174,7 +182,7 @@ with n2:
 with n3:
     if st.button("🗺️ 3. Plan d'Action", use_container_width=True, key="nav_3"): st.session_state.current_step = 3; st.rerun()
 
-# LOGIQUE ÉTAPES (Audit D.U.R., Pivots, Plan d'Action)
+# --- LOGIQUE ÉTAPES ---
 if st.session_state.current_step == 1:
     st.header("🔍 Audit D.U.R.")
     if st.session_state.project["analysis"]:
