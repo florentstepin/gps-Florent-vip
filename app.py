@@ -89,6 +89,23 @@ def consume_credit():
         st.session_state.user['credits'] = new_val
         if 'total_runs' in st.session_state.user:
             st.session_state.user['total_runs'] += 1
+@st.dialog("🚀 Guide Quick-Start : 5 min pour gagner")
+def show_quick_start():
+    st.markdown("""
+    ### ⚡ Maîtrisez Stratège IA
+    **1. Carburant** : Donnez 5-10 lignes de détails pour l'étape 1. Une IA bien nourrie est une IA précise.
+    **2. Itération** : Utilisez le bouton 'Affiner' pour pivoter sans frais inutiles.
+    **3. Sauvegarde** : Exportez en JSON pour ne jamais payer deux fois la même étape.
+    ---
+    ### 🧠 La Méthode D.U.R.
+    * **Douloureux** : Le problème fait-il assez mal pour justifier un achat ?
+    * **Urgent** : Le client doit-il agir maintenant ou peut-il attendre ?
+    * **Reconnu** : Le client est-il conscient de son problème ?
+    ---
+    *Cliquez sur la croix en haut à droite ou à côté pour fermer.*
+    """)
+    if st.button("Fermer"):
+        st.rerun()
 
 # --- 6. ACCÈS (LOGIN/SIGNUP UUID) ---
 if not st.session_state.user:
@@ -110,19 +127,14 @@ if not st.session_state.user:
             except Exception as e: st.error(f"Erreur base de données : {e}")
     st.stop()
 
-# --- 7. SIDEBAR (GUIDE & QUALIFICATION) ---
+# --- 7. SIDEBAR (V3 TEST : QUALIFICATION & QUICK-START) ---
 with st.sidebar:
     if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
     st.info(f"👤 {st.session_state.user['email']}\n🎯 **{st.session_state.user['credits']} Crédits**")
     
-    with st.popover("🚀 Guide Quick-Start : 5 min", use_container_width=True):
-        st.markdown("""
-        **1. Carburant** : Donnez 5-10 lignes pour l'étape 1.
-        **2. Itération** : Utilisez 'Affiner' pour pivoter sans frais inutiles.
-        **3. Export** : Sauvegardez en JSON pour ne jamais payer deux fois la même étape.
-        ---
-        **Méthode D.U.R.** : Douloureux, Urgent, Reconnu.
-        """)
+    # ÉVOLUTION 2 : APPEL DU GUIDE EN FENÊTRE INDÉPENDANTE
+    if st.button("🚀 Guide Quick-Start", use_container_width=True):
+        show_quick_start()
 
     st.link_button("⚡ Recharger", LINK_RECHARGE, type="primary", use_container_width=True)
     st.divider()
@@ -135,21 +147,29 @@ with st.sidebar:
         if up and st.button("✅ Valider l'Import"):
             st.session_state.project.update(json.load(up).get("data", {})); st.rerun()
 
+    # ÉVOLUTION 1 : FORMULAIRE DE QUALIFICATION MODIFIÉ
     with st.expander("💎 Expertise Humaine (Qualification)", expanded=True):
         if st.session_state.project["analysis"]:
-            budget = st.selectbox("Budget :", ["< 5k€", "5k€ - 20k€", "20k€ - 50k€", "50k€+"])
+            # Remplacement du budget par l'importance
+            importance = st.selectbox("Importance projet :", ["basse", "moyenne", "haute"])
             timeline = st.selectbox("Timing :", ["Immédiat", "Sous 3 mois", "En réflexion"])
-            msg_exp = st.text_area("Question pour Florent :")
+            # Remplacement de la question par l'attente
+            attente = st.text_area("Quelle est votre attente ?", placeholder="Expliquez ce que vous recherchez...")
+            
             if st.button("🚀 Réserver mon Audit PDF"):
-                details = f"Budget: {budget} | Timing: {timeline} | Message: {msg_exp}"
-                if send_audit_email(details, create_pdf_bytes(st.session_state.project)): 
-                    st.success("Dossier envoyé !"); st.balloons()
-                else: st.error("Erreur d'envoi.")
+                if attente:
+                    details = f"Importance: {importance} | Timing: {timeline} | Attente: {attente}"
+                    if send_audit_email(details, create_pdf_bytes(st.session_state.project)): 
+                        st.success("Dossier envoyé !"); st.balloons()
+                    else: st.error("Erreur d'envoi.")
+                else:
+                    st.warning("Veuillez préciser votre attente pour valider.")
         else: st.warning("Terminez l'étape 1 pour contacter Florent.")
+
 
 # --- 8. CORPS DE L'APPLI ---
 st.title("🧠 Stratège IA V2.5 Pro")
-st.markdown("<div class='intro-box'><b>Usine à Stratégie.</b> Transformer une idée floue en plan d'action concret.</div>", unsafe_allow_html=True)
+st.markdown("<div class='intro-box'>Transformer une idée floue en plan d'action concret.</div>", unsafe_allow_html=True)
 
 nav1, nav2, nav3 = st.columns(3)
 with nav1:
