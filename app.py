@@ -33,105 +33,65 @@ try:
     SENDER_PASS = st.secrets["EMAIL_PASSWORD"]
     RECEIVER_EMAIL = st.secrets["EMAIL_RECEIVER"]
 except Exception as e:
-    st.error(f"⚠️ Erreur de configuration : {e}")
+    st.error(f"⚠️ Erreur configuration : {e}")
     st.stop()
 
-# --- 3. STYLE CSS (COULEURS & SOUS-TITRE) ---
+# --- 3. STYLE CSS (BOUTONS & H3) ---
 st.markdown("""
     <style>
-    /* 1. Bouton ROUGE : Crédits supplémentaires (Primary) */
-    div.stButton > button[kind="primary"] {
-        background-color: #e02e2e !important;
-        color: white !important;
-        border: none !important;
-        width: 100%;
-    }
+    /* Bouton ROUGE : Crédits supplémentaires */
+    div.stButton > button[kind="primary"] { background-color: #e02e2e !important; color: white !important; border: none !important; }
     
-    /* 2. Style pour l'expander VERT (Expertise) */
-    .expert-green > div:first-child {
-        background-color: #2eb82e !important;
-        color: white !important;
-        border-radius: 8px;
-    }
+    /* Expander VERT : Expertise Humaine */
+    .expert-box > div:first-child { background-color: #2eb82e !important; color: white !important; border-radius: 8px; }
 
-    /* 3. Style pour l'expander JAUNE (Import/Export) */
-    .io-yellow > div:first-child {
-        background-color: #ffcc00 !important;
-        color: #1a1a1a !important;
-        border-radius: 8px;
-    }
+    /* Expander JAUNE : Import / Export */
+    .io-box > div:first-child { background-color: #ffcc00 !important; color: #1a1a1a !important; border-radius: 8px; }
 
-    .intro-box { 
-        background-color: rgba(127, 90, 240, 0.15); 
-        padding: 20px; border-radius: 10px; border: 1px solid #7f5af0; 
-        margin-bottom: 25px; color: #1a1a1a;
-    }
-    /* Sous-titre en H3 */
-    .intro-box h3 { margin: 0; font-size: 1.25rem; font-weight: 600; }
-    
+    .intro-box { background-color: rgba(127, 90, 240, 0.15); padding: 20px; border-radius: 10px; border: 1px solid #7f5af0; margin-bottom: 25px; color: #1a1a1a; }
+    .intro-box h3 { margin: 0; font-size: 1.3rem; font-weight: 700; color: #1a1a1a; }
     .variant-divider { color: #7f5af0; font-weight: bold; border-top: 2px dashed #7f5af0; margin-top: 30px; padding-top: 15px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 4. FONCTION DIALOG : LE GUIDE QUICK-START ---
+# --- 4. DIALOG : GUIDE QUICK-START ---
 @st.dialog("🚀 Guide Quick-Start : Maîtrisez Stratège IA en 5 minutes")
 def show_quick_start():
     st.markdown("""
-    Bienvenue dans votre outil de stratégie. Cet outil n'est pas un simple chat, c'est un laboratoire où nous allons tester la résistance de votre idée avant de tracer votre route vers le succès.
-
+    Bienvenue dans votre laboratoire de stratégie.
     ### 💡 La Règle d'Or : "Le Carburant"
-    Plus vous donnez de détails, plus l'IA est précise. Ne dites pas : *"Je veux vendre des fleurs"*. Dites : *"Je veux vendre des bouquets de fleurs séchées par abonnement pour les bureaux d'entreprises à Lyon, avec une livraison en vélo-cargo."*
-
-    ### 🛠️ Votre Parcours en 3 Étapes
-    | Étape | Action | Objectif |
-    | :--- | :--- | :--- |
-    | **01. Audit D.U.R.** | Saisissez idée + contexte | Verdict clinique : **GO, NO-GO ou PIVOT** |
-    | **02. Les Pivots** | Explorez 3 trajectoires | Comparer les modèles (Cibles, Revenus, Marges) |
-    | **03. Plan d'Action** | Copiez votre pivot favori | Feuille de route : **Vision, Mois 1 & Mois 3** |
-
-    ### 🧠 3 Astuces pour tirer le maximum de l'outil
-    * **Affiner & Relancer** : Si l'audit est trop général, utilisez le bouton d'ajustement pour ajouter une contrainte (ex: *"Budget de 500€"*). L'IA recalculera tout.
-    * **Accumulez les Variantes** : À l'étape 2, générez 6 ou 9 angles. Ils se cumulent dans votre rapport final.
-    * **Sauvez votre "Cerveau de Projet"** : Exportez en **JSON**. Demain, importez-le pour reprendre là où vous en étiez sans consommer de nouveaux crédits.
-
-    ### ⚠️ Précautions Techniques
-    * **Pas de touche F5** : N'actualisez jamais. Utilisez les boutons de navigation interne (🔍, 💡, 🗺️).
-    * **Écran Allumé** : Gardez l'onglet actif pendant les calculs (10-15 sec).
-
-    ### 💎 Besoin d'un regard humain ?
-    Une fois l'étape 1 terminée, allez dans la barre latérale **"Expertise Humaine"** pour demander une validation stratégique approfondie à Florent.
-    
-    *Le rapport final (PDF) vous attend dans la barre latérale. Bonne stratégie !*
+    Soyez précis. Ne dites pas : *"Je veux vendre des fleurs"*. Dites : *"Je veux vendre des bouquets de fleurs séchées par abonnement B2B à Lyon avec livraison écologique."*
+    ### 🛠️ Parcours en 3 Étapes
+    1. **Audit D.U.R.** : Verdict clinique GO/NO-GO.
+    2. **Les Pivots** : 3 trajectoires avec tableau de marges.
+    3. **Plan d'Action** : Votre feuille de route opérationnelle (Mois 1 & 3).
+    ### 🧠 Astuces
+    * **Affiner** : Utilisez le bouton dédié pour ajuster sans frais.
+    * **Sauver** : Exportez en **JSON** pour reprendre gratuitement plus tard.
+    ---
+    *Fermez cette fenêtre via la croix en haut à droite.*
     """)
-    if st.button("Fermer le guide"):
-        st.rerun()
 
 # --- 5. FONCTIONS MÉTIER ---
 def create_pdf_bytes(data):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "DOSSIER STRATEGIQUE - STRATEGE IA", ln=True, align="C")
-    pdf.ln(10)
-    sections = [("IDEE", data['idea']), ("CONTEXTE", data['context']), 
-                ("1. AUDIT D.U.R.", data['analysis']), ("2. PIVOTS", data['pivots']), ("3. PLAN D'ACTION", data['gps'])]
+    pdf.cell(0, 10, "AUDIT STRATEGIQUE - V2.5 PRO", ln=True, align="C")
+    sections = [("IDEE", data['idea']), ("1. D.U.R.", data['analysis']), ("2. PIVOTS", data['pivots']), ("3. ACTION", data['gps'])]
     for title, content in sections:
-        pdf.set_font("Helvetica", "B", 12); pdf.set_text_color(127, 90, 240)
-        pdf.cell(0, 10, title, ln=True)
-        pdf.set_font("Helvetica", size=10); pdf.set_text_color(0, 0, 0)
-        text = content if content else "Etape non effectuee"
-        pdf.multi_cell(0, 5, text.encode('latin-1', 'replace').decode('latin-1'))
-        pdf.ln(5)
+        pdf.set_font("Helvetica", "B", 12); pdf.cell(0, 10, title, ln=True)
+        pdf.set_font("Helvetica", size=10); pdf.multi_cell(0, 5, str(content).encode('latin-1', 'replace').decode('latin-1'))
     return bytes(pdf.output())
 
 def send_audit_email(user_msg, pdf_content):
     try:
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL; msg['To'] = RECEIVER_EMAIL
-        msg['Subject'] = f"🚀 AUDIT QUALIFIÉ : {st.session_state.user['email']}"
-        msg.attach(MIMEText(f"Détails du prospect :\n{user_msg}", 'plain'))
+        msg['Subject'] = f"🚀 AUDIT : {st.session_state.user['email']}"
+        msg.attach(MIMEText(user_msg, 'plain'))
         part = MIMEBase('application', 'octet-stream'); part.set_payload(pdf_content)
-        encoders.encode_base64(part); part.add_header('Content-Disposition', "attachment; filename=Dossier_Strategique.pdf")
+        encoders.encode_base64(part); part.add_header('Content-Disposition', "attachment; filename=Audit.pdf")
         msg.attach(part)
         server = smtplib.SMTP("smtp.gmail.com", 587); server.starttls(); server.login(SENDER_EMAIL, SENDER_PASS)
         server.send_message(msg); server.quit(); return True
@@ -149,122 +109,16 @@ if "current_step" not in st.session_state: st.session_state.current_step = 1
 if "project" not in st.session_state:
     st.session_state.project = {"idea": "", "context": "", "analysis": "", "pivots": "", "gps": ""}
 
-# --- 7. ACCÈS (LOGIN/SIGNUP) ---
+# --- 7. ACCÈS (LOGIN) ---
 if not st.session_state.user:
-    st.title("🚀 Accès Stratège IA")
+    st.title("🚀 Connexion Stratège IA")
     em = st.text_input("Email Pro")
-    if st.button("Connexion"):
+    if st.button("Accéder"):
         email_clean = em.strip().lower()
         if email_clean:
-            try:
-                res = supabase.table("users").select("*").eq("email", email_clean).execute()
-                if res.data:
-                    st.session_state.user = res.data[0]; st.rerun()
-                else:
-                    new_user = {"access_code": str(uuid.uuid4()), "email": email_clean, "credits": 2, "total_runs": 0}
-                    insert_res = supabase.table("users").insert(new_user).execute()
-                    if insert_res.data:
-                        st.session_state.user = insert_res.data[0]; st.rerun()
-            except Exception as e: st.error(f"Erreur base de données : {e}")
-    st.stop()
-
-# --- 8. SIDEBAR (GUIDE, CRÉDITS & QUALIFICATION) ---
-with st.sidebar:
-    if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
-    st.info(f"👤 {st.session_state.user['email']}\n🎯 **{st.session_state.user['credits']} Crédits**")
-    
-    # Bouton GUIDE (Neutre)
-    if st.button("🚀 Guide Quick-Start", use_container_width=True):
-        show_quick_start()
-
-    # BOUTON ROUGE : Crédits supplémentaires
-    st.link_button("⚡ Crédits supplémentaires", LINK_RECHARGE, type="primary", use_container_width=True)
-
-    st.divider()
-
-    # BOUTON JAUNE : Import / Export
-    st.markdown('<div class="io-yellow">', unsafe_allow_html=True)
-    with st.expander("📂 Import / Export", expanded=False):
-        if st.session_state.project["analysis"]:
-            st.download_button("📄 Telecharger PDF", create_pdf_bytes(st.session_state.project), "Rapport.pdf", use_container_width=True)
-        st.download_button("💾 Sauver JSON", json.dumps({"data": st.session_state.project}), "projet.json", use_container_width=True)
-        up = st.file_uploader("📥 Importer JSON", type="json")
-        if up and st.button("✅ Valider l'Import"):
-            st.session_state.project.update(json.load(up).get("data", {})); st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # BOUTON VERT : Expertise Humaine (Qualification)
-    st.markdown('<div class="expert-green">', unsafe_allow_html=True)
-    with st.expander("💎 Expertise Humaine (Qualification)", expanded=True):
-        if st.session_state.project["analysis"]:
-            importance = st.selectbox("Importance projet :", ["haute", "moyenne", "basse"], key="q_imp")
-            timeline = st.selectbox("Timing :", ["Immédiat", "Sous 3 mois", "En réflexion"], key="q_time")
-            attente = st.text_area("Quelle est votre attente ?", key="q_attente")
-            
-            if st.button("🚀 Réserver mon Audit PDF", use_container_width=True, key="q_btn"):
-                if attente:
-                    details = f"IMPORTANCE: {importance} | TIMELINE: {timeline} | ATTENTE: {attente}"
-                    if send_audit_email(details, create_pdf_bytes(st.session_state.project)): 
-                        st.success("Dossier envoyé !"); st.balloons()
-                else: st.warning("Précisez votre attente.")
-        else:
-            st.warning("Terminez l'étape 1 pour débloquer l'expertise.")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# --- 9. CORPS DE L'APPLI ---
-st.title("🧠 Stratège IA V2.5 Pro")
-st.markdown(f"""
-    <div class='intro-box'>
-        <h3>Transformer en moins de 5 minutes une idée floue en plan d'action concret</h3>
-    </div>
-""", unsafe_allow_html=True)
-
-# NAVIGATION
-nav1, nav2, nav3 = st.columns(3)
-with nav1:
-    if st.button("🔍 1. Analyse", use_container_width=True, type="primary" if st.session_state.current_step == 1 else "secondary"):
-        st.session_state.current_step = 1; st.rerun()
-with nav2:
-    if st.button("💡 2. Pivots", use_container_width=True, type="primary" if st.session_state.current_step == 2 else "secondary"):
-        st.session_state.current_step = 2; st.rerun()
-with nav3:
-    if st.button("🗺️ 3. Plan d'Action", use_container_width=True, type="primary" if st.session_state.current_step == 3 else "secondary"):
-        st.session_state.current_step = 3; st.rerun()
-
-st.progress(st.session_state.current_step / 3)
-
-# ÉTAPE 1 : ANALYSE
-if st.session_state.current_step == 1:
-    st.header("🔍 Analyse Crash-Test D.U.R.")
-    if st.session_state.project["analysis"]:
-        st.markdown(st.session_state.project["analysis"])
-        with st.popover("🌀 Affiner & Relancer (1 crédit)"):
-            refine = st.text_area("Ajustements...")
-            if st.button("Regénérer"):
-                if st.session_state.user['credits'] > 0:
-                    with st.status("Ré-expertise..."):
-                        p = f"MISSION : Ré-expertise D.U.R. IDÉE : {st.session_state.project['idea']}. AJUSTEMENT : {refine}. Scores /10, Fractures, Verdict: GO/NO-GO/PIVOT."
-                        st.session_state.project["analysis"] = model.generate_content(p).text
-                        st.session_state.project["pivots"], st.session_state.project["gps"] = "", ""
-                        consume_credit(); st.rerun()
-        if st.button("➡️ Suivant : Lancer les Pivots", use_container_width=True):
-            st.session_state.current_step = 2; st.rerun()
-    else:
-        c1, c2 = st.columns(2)
-        idea = c1.text_area("Votre idée :")
-        ctx = c2.text_area("Contexte :")
-        if st.button("Lancer l'Audit (1 crédit)", use_container_width=True):
-            if idea and st.session_state.user['credits'] > 0:
-                with st.status("Audit..."):
-                    p = f"Analyse D.U.R. IDÉE : {idea}. CONTEXTE : {ctx}. Scores /10, Fractures, Verdict: GO/NO-GO/PIVOT."
-                    res = model.generate_content(p).text
-                    st.session_state.project.update({"idea": idea, "context": ctx, "analysis": res})
-                    consume_credit(); st.rerun()
-
-# ÉTAPE 2 : PIVOTS
-elif st.session_state.current_step == 2:
-    st.header("💡 Pivots Stratégiques")
-    if not st.session_state.project["analysis"]: st.warning("Faites l'étape 1.")
-    elif st.session_state.project["pivots"]:
-        st.markdown(st.session_state.project["pivots"], unsafe_allow_html=True)
-        with st.popover("➕
+            res = supabase.table("users").select("*").eq("email", email_clean).execute()
+            if res.data: st.session_state.user = res.data[0]; st.rerun()
+            else:
+                new = {"access_code": str(uuid.uuid4()), "email": email_clean, "credits": 2}
+                ins = supabase.table("users").insert(new).execute()
+                if ins
