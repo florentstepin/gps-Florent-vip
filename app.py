@@ -89,22 +89,40 @@ def consume_credit():
         st.session_state.user['credits'] = new_val
         if 'total_runs' in st.session_state.user:
             st.session_state.user['total_runs'] += 1
-@st.dialog("🚀 Guide Quick-Start : 5 min pour gagner")
+
+@st.dialog("🚀 Guide Quick-Start : Maîtrisez Stratège IA en 5 minutes")
 def show_quick_start():
     st.markdown("""
-    ### ⚡ Maîtrisez Stratège IA
-    **1. Carburant** : Donnez 5-10 lignes de détails pour l'étape 1. Une IA bien nourrie est une IA précise.
-    **2. Itération** : Utilisez le bouton 'Affiner' pour pivoter sans frais inutiles.
-    **3. Sauvegarde** : Exportez en JSON pour ne jamais payer deux fois la même étape.
-    ---
-    ### 🧠 La Méthode D.U.R.
-    * **Douloureux** : Le problème fait-il assez mal pour justifier un achat ?
-    * **Urgent** : Le client doit-il agir maintenant ou peut-il attendre ?
-    * **Reconnu** : Le client est-il conscient de son problème ?
-    ---
-    *Cliquez sur la croix en haut à droite ou à côté pour fermer.*
+    Bienvenue dans votre **Usine à Stratégie**. Cet outil n'est pas un simple chat, c'est un laboratoire où nous allons tester la résistance de votre idée avant de tracer votre route vers le succès.
+
+    ### 💡 La Règle d'Or : "Le Carburant"
+    Plus vous donnez de détails, plus l'IA est précise. Ne dites pas : *"Je veux vendre des fleurs"*. Dites : *"Je veux vendre des bouquets de fleurs séchées par abonnement pour les bureaux d'entreprises à Lyon, avec une livraison en vélo-cargo."*
+
+    ### 🛠️ Votre Parcours en 3 Étapes
+    | Étape | Action | Objectif |
+    | :--- | :--- | :--- |
+    | **01. Audit D.U.R.** | Saisissez idée + contexte | Verdict : **GO, NO-GO ou PIVOT** |
+    | **02. Les Pivots** | Explorez 3 trajectoires | Comparer les modèles & marges |
+    | **03. Le Plan GPS** | Copiez votre pivot favori | Feuille de route : **Vision, M1 & M3** |
+
+    ### 🧠 3 Astuces pour tirer le maximum de l'outil
+    * **Affiner & Relancer** : Si l'audit est trop général, utilisez le popover pour ajouter une contrainte (ex: *"Budget de 500€"*). L'IA recalculera tout.
+    * **Accumulez les Variantes** : À l'étape 2, générez 6 ou 9 angles. Ils se cumulent dans votre rapport pour vous laisser le choix.
+    * **Sauvez votre "Cerveau de Projet"** : Exportez en **JSON**. Demain, importez-le pour reprendre là où vous en étiez sans consommer de nouveaux crédits.
+
+    ### ⚠️ Précautions Techniques
+    * **Pas de touche F5** : N'actualisez jamais. Utilisez les boutons de navigation interne (🔍, 💡, 🗺️).
+    * **Écran Allumé** : Gardez l'onglet actif pendant les calculs (10-15 sec).
+
+    ### 💎 Besoin d'un regard humain ?
+    Une fois l'étape 1 terminée :
+    1. Allez dans la barre latérale : **"Expertise Humaine"**.
+    2. Précisez votre importance et votre attente.
+    3. Cliquez sur **"Réserver mon Audit"**.
+    
+    *Le rapport final (PDF) vous attend dans la barre latérale. Bonne stratégie !*
     """)
-    if st.button("Fermer"):
+    if st.button("Fermer le guide"):
         st.rerun()
 
 # --- 6. ACCÈS (LOGIN/SIGNUP UUID) ---
