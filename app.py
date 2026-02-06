@@ -36,13 +36,50 @@ except Exception as e:
     st.error(f"⚠️ Erreur de configuration : {e}")
     st.stop()
 
-# --- 3. STYLE CSS ---
+# --- 3. STYLE CSS (COULEURS BOUTONS & SOUS-TITRE) ---
 st.markdown("""
     <style>
-    div.stButton > button:first-child { background-color: #7f5af0; color: white; border: none; border-radius: 8px; font-weight: bold; height: 3em; }
-    div.stButton > button:hover { background-color: #6246ea; color: white; }
-    .intro-box { background-color: rgba(127, 90, 240, 0.15); padding: 20px; border-radius: 10px; border: 1px solid #7f5af0; margin-bottom: 25px; color: #1a1a1a !important; font-weight: 500; }
-    .variant-divider { color: #7f5af0; font-weight: bold; border-top: 2px dashed #7f5af0; margin-top: 30px; padding-top: 15px; }
+    /* 1. Bouton ROUGE : Crédits supplémentaires (Primary) */
+    div.stButton > button[kind="primary"] {
+        background-color: #e02e2e !important;
+        color: white !important;
+        border: none !important;
+        width: 100%;
+    }
+    
+    /* 2. Bouton VERT : Expertise (Via Popover) */
+    div[data-testid="stPopover"] > button {
+        background-color: #2eb82e !important;
+        color: white !important;
+        border: none !important;
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    /* 3. Bouton JAUNE : Import / Export (Expander) */
+    .st-emotion-cache-p5msec { /* Cible l'en-tête de l'expander */
+        background-color: #ffcc00 !important;
+        color: #1a1a1a !important;
+        border-radius: 8px;
+        font-weight: bold;
+    }
+
+    .intro-box { 
+        background-color: rgba(127, 90, 240, 0.15); 
+        padding: 20px; 
+        border-radius: 10px; 
+        border: 1px solid #7f5af0; 
+        margin-bottom: 25px; 
+        color: #1a1a1a;
+    }
+    
+    /* Style pour le sous-titre H3 */
+    .intro-box h3 {
+        margin: 0;
+        font-size: 1.2rem;
+        color: #1a1a1a;
+        font-weight: 600;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -145,19 +182,40 @@ if not st.session_state.user:
             except Exception as e: st.error(f"Erreur base de données : {e}")
     st.stop()
 
-# --- 7. SIDEBAR (V3 TEST : QUALIFICATION & QUICK-START) ---
+# --- 7. SIDEBAR (V3 TEST : COULEURS & NAVIGATION) ---
 with st.sidebar:
     if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
     st.info(f"👤 {st.session_state.user['email']}\n🎯 **{st.session_state.user['credits']} Crédits**")
     
-    # ÉVOLUTION 2 : APPEL DU GUIDE EN FENÊTRE INDÉPENDANTE
+    # BOUTON GUIDE (Neutre)
     if st.button("🚀 Guide Quick-Start", use_container_width=True):
         show_quick_start()
 
-    st.link_button("⚡ Recharger", LINK_RECHARGE, type="primary", use_container_width=True)
+    # BOUTON ROUGE : Crédits supplémentaires
+    st.link_button("⚡ Crédits supplémentaires", LINK_RECHARGE, type="primary", use_container_width=True)
+
+    # BOUTON VERT : Expertise Humaine (Placé sous le rouge)
+    with st.popover("💎 Expertise Humaine", use_container_width=True):
+        if st.session_state.project["analysis"]:
+            st.markdown("### Qualification de l'Audit")
+            importance = st.selectbox("Importance projet :", ["haute", "moyenne", "basse"])
+            timeline = st.selectbox("Timing :", ["Immédiat", "Sous 3 mois", "En réflexion"])
+            attente = st.text_area("Quelle est votre attente ?", placeholder="Expliquez ce que vous recherchez...")
+            
+            if st.button("🚀 Réserver mon Audit PDF", use_container_width=True):
+                if attente:
+                    details = f"IMPORTANCE: {importance} | TIMELINE: {timeline} | ATTENTE: {attente}"
+                    if send_audit_email(details, create_pdf_bytes(st.session_state.project)): 
+                        st.success("Dossier envoyé !"); st.balloons()
+                    else: st.error("Erreur d'envoi.")
+                else: st.warning("Précisez votre attente.")
+        else:
+            st.warning("Terminez l'étape 1 pour débloquer l'expertise.")
+
     st.divider()
 
-    with st.expander("📂 Gestion de Session", expanded=False):
+    # BOUTON JAUNE : Import / Export
+    with st.expander("📂 Import / Export", expanded=False):
         if st.session_state.project["analysis"]:
             st.download_button("📄 Telecharger PDF", create_pdf_bytes(st.session_state.project), "Rapport.pdf", use_container_width=True)
         st.download_button("💾 Sauver JSON", json.dumps({"data": st.session_state.project}), "projet.json", use_container_width=True)
@@ -187,7 +245,11 @@ with st.sidebar:
 
 # --- 8. CORPS DE L'APPLI ---
 st.title("🧠 Stratège IA V2.5 Pro")
-st.markdown("<div class='intro-box'>Transformer une idée floue en plan d'action concret.</div>", unsafe_allow_html=True)
+st.markdown(f"""
+    <div class='intro-box'>
+        <h3>Transformer en moins de 5 minutes une idée floue en plan d'action concret</h3>
+    </div>
+""", unsafe_allow_html=True)
 
 nav1, nav2, nav3 = st.columns(3)
 with nav1:
