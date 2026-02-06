@@ -35,71 +35,61 @@ except Exception as e:
     st.error(f"⚠️ Erreur configuration : {e}")
     st.stop()
 
-# --- 3. STYLE CSS (HARMONISATION TITRE & BOUTONS) ---
+# --- 3. STYLE CSS (ÉQUILIBRÉ) ---
 st.markdown("""
     <style>
-    /* TITRE PRINCIPAL : SUPÉRIEUR AUX BOUTONS */
+    /* TITRE HARMONISÉ */
     .main-title {
-        font-size: 4.8rem !important;      /* Légèrement supérieur aux 3.5rem des boutons */
-        font-weight: 900 !important;
+        font-size: 2.5rem !important;
+        font-weight: 800 !important;
         color: #1a1a1a;
-        margin-bottom: 0px !important;
-        padding-bottom: 0px !important;
-        letter-spacing: -2px;
+        margin-bottom: 10px !important;
     }
 
-    /* NAVIGATION HAUTE : POLICE MASSIVE (Vu sur fenêtre bis.png) */
+    /* NAVIGATION : UN CRAN EN-DESSOUS DU TITRE */
     .st-key-nav_1 button p, .st-key-nav_2 button p, .st-key-nav_3 button p {
-        font-size: 3.5rem !important;      /* Taille validée sur capture */
-        font-weight: 900 !important;
-        line-height: 1 !important;
-        margin: 0 !important;
+        font-size: 1.8rem !important;      /* Taille lisible et proportionnelle */
+        font-weight: 700 !important;
+        line-height: 1.1 !important;
     }
     
     .st-key-nav_1 button, .st-key-nav_2 button, .st-key-nav_3 button {
         height: auto !important;
-        min-height: 140px !important;      /* Adapté à la taille bis */
-        border: 4px solid #7f5af0 !important;
-        border-radius: 25px !important;
+        min-height: 80px !important;       /* Moins haut pour le mobile */
+        border: 2px solid #7f5af0 !important;
+        border-radius: 12px !important;
         background-color: white !important;
-        transition: transform 0.2s ease;
-    }
-    .st-key-nav_1 button:hover, .st-key-nav_2 button:hover, .st-key-nav_3 button:hover {
-        transform: scale(1.02);
-        box-shadow: 0 10px 20px rgba(127, 90, 240, 0.2);
     }
 
-    /* BOUTONS COULEURS SIDEBAR */
+    /* BOUTONS COULEURS */
     div.stButton > button[kind="primary"] { background-color: #e02e2e !important; color: white !important; border: none !important; }
     .expert-box > div:first-child { background-color: #2eb82e !important; color: white !important; border-radius: 8px; }
     .io-box > div:first-child { background-color: #ffcc00 !important; color: #1a1a1a !important; border-radius: 8px; }
 
-    .intro-box { background-color: rgba(127, 90, 240, 0.15); padding: 25px; border-radius: 15px; border: 1px solid #7f5af0; margin-bottom: 30px; }
-    .intro-box h3 { margin: 0; font-size: 1.5rem; font-weight: 700; color: #1a1a1a; }
+    .intro-box { background-color: rgba(127, 90, 240, 0.1); padding: 20px; border-radius: 10px; border: 1px solid #7f5af0; margin-bottom: 20px; }
+    .intro-box h3 { margin: 0; font-size: 1.1rem; font-weight: 600; color: #1a1a1a; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 4. DIALOG : GUIDE QUICK-START (SÉCURISÉ) ---
-@st.dialog("🚀 Guide Quick-Start : Maîtrisez Stratège IA en 5 minutes")
+# --- 4. DIALOG : GUIDE ---
+@st.dialog("🚀 Guide Quick-Start")
 def show_quick_start():
-    st.error("⚠️ Ne rafraichissez pas la page avant d'avoir fait un export JSON de votre travail. Pour raison de confidentialité vos données ne sont pas stockées.")
+    st.error("⚠️ Ne rafraichissez pas la page avant d'avoir fait un export JSON de votre travail. Vos données ne sont pas stockées sur nos serveurs.")
     st.markdown("""
-    ### 🛠️ Votre Parcours en 3 Étapes
-    | Étape | Action | Objectif |
-    | :--- | :--- | :--- |
-    | **01. Audit D.U.R.** | Saisissez idée + contexte | Verdict : **GO, NO-GO ou PIVOT** |
-    | **02. Les Pivots** | Explorez 3 trajectoires | Comparer modèles, cibles & marges |
-    | **03. Plan d'Action** | Copiez votre pivot favori | Feuille de route : **Vision, M1 & M3** |
+    ### 🛠️ Votre Parcours
+    1. **Audit D.U.R.** : Votre idée est-elle viable ?
+    2. **Les Pivots** : Explorez 3 trajectoires rentables.
+    3. **Plan d'Action** : Votre feuille de route (Mois 1 & 3).
 
-    ### 🧠 3 Astuces pour réussir
-    1. **Affiner** : Ajustez vos résultats sans frais via le popover.
-    2. **Sauver** : Exportez en **JSON** (Sauvegarde) pour reprendre gratuitement.
-    3. **Partager** : Exportez votre dossier en **PDF** (Partage) pour vos partenaires.
+    ### 🧠 Astuces
+    * **Affiner** : Ajustez vos résultats via le popover.
+    * **Sauver** : Exportez en **JSON** pour reprendre plus tard.
+    * **Partager** : Exportez votre dossier en **PDF** pour vos partenaires.
 
-    ### 💎 Expertise & Audit Qualifié
-    L'audit humain par Florent est **exclusivement réservé aux projets précis** pour éviter le tourisme entrepreneurial.
+    ### 💎 Expertise Florent
+    L'audit humain est **exclusivement réservé aux projets précis** pour éviter le tourisme entrepreneurial.
     """)
-    if st.button("J'ai bien compris, fermer le guide", use_container_width=True):
+    if st.button("Fermer le guide", use_container_width=True):
         st.rerun()
 
 # --- 5. FONCTIONS MÉTIER ---
@@ -107,8 +97,8 @@ def create_pdf_bytes(data):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "AUDIT STRATEGIQUE - V2.5 PRO", ln=True, align="C")
-    sections = [("IDEE", data['idea']), ("1. D.U.R.", data['analysis']), ("2. PIVOTS", data['pivots']), ("3. PLAN D'ACTION", data['gps'])]
+    pdf.cell(0, 10, "AUDIT STRATEGIQUE", ln=True, align="C")
+    sections = [("IDEE", data['idea']), ("1. D.U.R.", data['analysis']), ("2. PIVOTS", data['pivots']), ("3. ACTION", data['gps'])]
     for title, content in sections:
         pdf.set_font("Helvetica", "B", 12); pdf.cell(0, 10, title, ln=True)
         pdf.set_font("Helvetica", size=10); pdf.multi_cell(0, 5, str(content).encode('latin-1', 'replace').decode('latin-1'))
@@ -139,7 +129,7 @@ if "current_step" not in st.session_state: st.session_state.current_step = 1
 if "project" not in st.session_state:
     st.session_state.project = {"idea": "", "context": "", "analysis": "", "pivots": "", "gps": ""}
 
-# --- 7. ACCÈS (CORRIGÉ LIGNE 124) ---
+# --- 7. ACCÈS ---
 if not st.session_state.user:
     st.markdown("<h1 class='main-title'>🧠 Stratège IA</h1>", unsafe_allow_html=True)
     em = st.text_input("Email Pro")
@@ -151,34 +141,33 @@ if not st.session_state.user:
             else:
                 new = {"access_code": str(uuid.uuid4()), "email": email_clean, "credits": 2}
                 ins = supabase.table("users").insert(new).execute()
-                if ins.data: # Fix syntaxe ':'
-                    st.session_state.user = ins.data[0]; st.rerun()
+                if ins.data: st.session_state.user = ins.data[0]; st.rerun()
     st.stop()
 
 # --- 8. SIDEBAR ---
 with st.sidebar:
     st.info(f"👤 {st.session_state.user['email']}\n🎯 **{st.session_state.user['credits']} Crédits**")
-    if st.button("🚀 Guide Quick-Start", use_container_width=True, key="btn_guide_final"): show_quick_start()
+    if st.button("🚀 Guide Quick-Start", use_container_width=True, key="btn_gs_v3"): show_quick_start()
     st.link_button("⚡ Crédits supplémentaires", LINK_RECHARGE, type="primary", use_container_width=True)
     st.divider()
 
     st.markdown('<div class="io-box">', unsafe_allow_html=True)
     with st.expander("📂 Import / Export", expanded=False):
         if st.session_state.project["analysis"]:
-            st.download_button("📄 PDF (Partage)", create_pdf_bytes(st.session_state.project), "Audit.pdf", key="dl_pdf_f")
-        st.download_button("💾 JSON (Sauvegarde)", json.dumps({"data": st.session_state.project}), "projet.json", key="dl_json_f")
-        up = st.file_uploader("📥 Charger un projet", type="json", key="up_json_f")
-        if up and st.button("✅ Valider", key="btn_up_f"):
+            st.download_button("📄 PDF (Partage)", create_pdf_bytes(st.session_state.project), "Audit.pdf", key="dl_pdf_v3")
+        st.download_button("💾 JSON (Sauvegarde)", json.dumps({"data": st.session_state.project}), "projet.json", key="dl_json_v3")
+        up = st.file_uploader("📥 Charger un projet", type="json", key="up_json_v3")
+        if up and st.button("✅ Valider", key="btn_up_v3"):
             st.session_state.project.update(json.load(up).get("data", {})); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="expert-box">', unsafe_allow_html=True)
-    with st.expander("💎 Expertise Humaine (Audit)", expanded=True):
+    with st.expander("💎 Expertise Humaine (Qualification)", expanded=True):
         if st.session_state.project["analysis"]:
-            imp = st.selectbox("Importance projet :", ["haute", "moyenne", "basse"], key="q_imp_f")
-            tim = st.selectbox("Timing :", ["Immédiat", "Sous 3 mois", "En réflexion"], key="q_time_f")
-            att = st.text_area("Quelle est votre attente ?", key="q_att_f")
-            if st.button("🚀 Réserver mon Audit PDF", use_container_width=True, key="q_btn_f"):
+            imp = st.selectbox("Importance :", ["haute", "moyenne", "basse"], key="q_imp_v3")
+            tim = st.selectbox("Timing :", ["Immédiat", "Sous 3 mois", "En réflexion"], key="q_time_v3")
+            att = st.text_area("Votre attente ?", key="q_att_v3")
+            if st.button("🚀 Réserver mon Audit PDF", use_container_width=True, key="q_btn_v3"):
                 if att:
                     if send_audit_email(f"Importance: {imp} | Timing: {tim} | Attente: {att}", create_pdf_bytes(st.session_state.project)):
                         st.success("Demande transmise !"); st.balloons()
@@ -203,18 +192,18 @@ if st.session_state.current_step == 1:
     if st.session_state.project["analysis"]:
         st.markdown(st.session_state.project["analysis"])
         with st.popover("🌀 Affiner l'analyse"):
-            ref = st.text_area("Ajustements...", key="ref_1_f")
-            if st.button("Regénérer", key="btn_ref_1_f"):
+            ref = st.text_area("Ajustements...", key="ref_1_v3")
+            if st.button("Regénérer", key="btn_ref_1_v3"):
                 if st.session_state.user['credits'] > 0:
-                    st.session_state.project["analysis"] = model.generate_content(f"Audit D.U.R pour {st.session_state.project['idea']}. Ajustement: {ref}").text
+                    st.session_state.project["analysis"] = model.generate_content(f"D.U.R pour {st.session_state.project['idea']}. Ajustement: {ref}").text
                     consume_credit(); st.rerun()
-        if st.button("➡️ Suivant : Lancer les Pivots", use_container_width=True, key="next_1_f"):
+        if st.button("➡️ Suivant : Lancer les Pivots", use_container_width=True, key="next_1_v3"):
             st.session_state.current_step = 2; st.rerun()
     else:
         c1, c2 = st.columns(2)
-        id_ = c1.text_area("Votre idée précise :", key="in_idea_f")
-        ctx = c2.text_area("Votre contexte :", key="in_ctx_f")
-        if st.button("Lancer l'Audit (1 crédit)", key="btn_step1_f", use_container_width=True):
+        id_ = c1.text_area("Votre idée précise :", key="in_idea_v3")
+        ctx = c2.text_area("Votre contexte :", key="in_ctx_v3")
+        if st.button("Lancer l'Audit (1 crédit)", key="btn_step1_v3", use_container_width=True):
             if id_ and st.session_state.user['credits'] > 0:
                 res = model.generate_content(f"Audit D.U.R complet pour: {id_}. Contexte: {ctx}").text
                 st.session_state.project.update({"idea": id_, "context": ctx, "analysis": res})
@@ -225,17 +214,17 @@ elif st.session_state.current_step == 2:
     if not st.session_state.project["analysis"]: st.warning("Faites l'étape 1.")
     elif st.session_state.project["pivots"]:
         st.markdown(st.session_state.project["pivots"], unsafe_allow_html=True)
-        with st.popover("➕ Plus de variantes"): # Fix Ligne 270
-            ref2 = st.text_area("Orientation...", key="ref_2_f")
-            if st.button("Générer 4-6", key="btn_ref_2_f"):
+        with st.popover("➕ Plus de variantes"): 
+            ref2 = st.text_area("Orientation...", key="ref_2_v3")
+            if st.button("Générer 4-6", key="btn_ref_2_v3"):
                 if st.session_state.user['credits'] > 0:
                     p = f"Génère 3 pivots pour {st.session_state.project['idea']}. Orientation: {ref2}."
                     st.session_state.project["pivots"] += f"\n\n{model.generate_content(p).text}"
                     consume_credit(); st.rerun()
-        if st.button("➡️ Suivant : Plan d'Action", use_container_width=True, key="next_2_f"):
+        if st.button("➡️ Suivant : Plan d'Action", use_container_width=True, key="next_2_v3"):
             st.session_state.current_step = 3; st.rerun()
     else:
-        if st.button("Générer les 3 Pivots (1 crédit)", key="btn_step2_f", use_container_width=True):
+        if st.button("Générer les 3 Pivots (1 crédit)", key="btn_step2_v3", use_container_width=True):
             p = f"3 pivots pour {st.session_state.project['idea']}. Tableau comparatif requis."
             st.session_state.project["pivots"] = model.generate_content(p).text
             consume_credit(); st.rerun()
@@ -245,10 +234,10 @@ elif st.session_state.current_step == 3:
     if not st.session_state.project["pivots"]: st.warning("Faites l'étape 2.")
     elif st.session_state.project["gps"]:
         st.markdown(st.session_state.project["gps"])
-        if st.button("🔄 Recalculer", key="btn_reset_3_f"): st.session_state.project["gps"] = ""; st.rerun()
+        if st.button("🔄 Recalculer", key="btn_reset_3_v3"): st.session_state.project["gps"] = ""; st.rerun()
     else:
-        sel = st.text_area("Pivot choisi :", key="sel_pivot_f")
-        if st.button("Tracer le Plan d'Action (1 crédit)", key="btn_step3_f", use_container_width=True):
+        sel = st.text_area("Pivot choisi :", key="sel_pivot_v3")
+        if st.button("Tracer le Plan d'Action (1 crédit)", key="btn_step3_v3", use_container_width=True):
             if sel:
                 p = f"Plan d'Action pour : {sel}."
                 st.session_state.project["gps"] = model.generate_content(p).text
