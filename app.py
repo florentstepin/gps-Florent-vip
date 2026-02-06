@@ -71,25 +71,40 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 4. DIALOG : GUIDE ---
-@st.dialog("🚀 Guide Quick-Start")
+# --- 4. DIALOG : GUIDE QUICK-START COMPLET ---
+@st.dialog("🚀 Guide Quick-Start : Maîtrisez Stratège IA en 5 minutes")
 def show_quick_start():
-    st.error("⚠️ Ne rafraichissez pas la page avant d'avoir fait un export JSON de votre travail. Vos données ne sont pas stockées sur nos serveurs.")
+    # Alerte de sécurité prioritaire
+    st.error("⚠️ Ne rafraichissez pas la page avant d'avoir fait un export JSON de votre travail. Pour raison de confidentialité vos données ne sont pas stockées.")
+    
     st.markdown("""
-    ### 🛠️ Votre Parcours
-    1. **Audit D.U.R.** : Votre idée est-elle viable ?
-    2. **Les Pivots** : Explorez 3 trajectoires rentables.
-    3. **Plan d'Action** : Votre feuille de route (Mois 1 & 3).
+    Bienvenue dans votre **Usine à Stratégie**. Cet outil n'est pas un simple chat, c'est un laboratoire où nous allons tester la résistance de votre idée avant de tracer votre route vers le succès.
 
-    ### 🧠 Astuces
-    * **Affiner** : Ajustez vos résultats via le popover.
-    * **Sauver** : Exportez en **JSON** pour reprendre plus tard.
-    * **Partager** : Exportez votre dossier en **PDF** pour vos partenaires.
+    ### 💡 La Règle d'Or : "Le Carburant"
+    Plus vous donnez de détails, plus l'IA est précise. Ne dites pas : *"Je veux vendre des fleurs"*. Dites : *"Je veux vendre des bouquets de fleurs séchées par abonnement pour les bureaux d'entreprises à Lyon, avec une livraison en vélo-cargo."*
 
-    ### 💎 Expertise Florent
-    L'audit humain est **exclusivement réservé aux projets précis** pour éviter le tourisme entrepreneurial.
+    ### 🛠️ Votre Parcours en 3 Étapes
+    | Étape | Action | Objectif |
+    | :--- | :--- | :--- |
+    | **01. L'Audit D.U.R.** | Saisissez votre idée et votre contexte. | Verdict clinique : **GO, NO-GO ou PIVOT**. |
+    | **02. Les Pivots** | Explorez 3 trajectoires stratégiques. | Comparer les modèles (Cibles, Revenus, Marges). |
+    | **03. Plan d'Action** | Copiez votre pivot favori. | Feuille de route : **Vision, Mois 1 et Mois 3**. |
+
+    ### 🧠 3 Astuces pour réussir
+    1. **Affiner & Relancer** : Si l'audit initial est trop général, utilisez le popover pour ajouter une contrainte (ex: *"Prends en compte un budget de 500€"*). L'IA recalculera tout.
+    2. **Sauver (JSON)** : Cliquez sur **"Sauver JSON"** pour télécharger votre session. Vous pourrez la réimporter plus tard gratuitement pour reprendre là où vous en étiez.
+    3. **Partager (PDF)** : Exportez votre dossier en **PDF**. C'est le support professionnel idéal pour présenter votre vision à des partenaires ou investisseurs.
+
+    ### ⚠️ Précautions Techniques
+    * **Pas de touche F5** : N'actualisez jamais la page, cela réinitialise la session. Utilisez uniquement les boutons de navigation (Analyse, Pivots, Plan d'Action).
+    * **Écran Allumé** : Gardez l'onglet actif pendant les phases de calcul (environ 10-15 secondes).
+
+    ### 💎 Besoin d'un regard humain ?
+    L'audit humain par Florent est **exclusivement réservé aux projets précis** pour éviter le tourisme entrepreneurial. Une fois l'étape 1 terminée, utilisez le formulaire de qualification dans la barre latérale pour soumettre votre dossier.
+    
+    *Le rapport final (PDF) vous attend dans la barre latérale. Bonne stratégie !*
     """)
-    if st.button("Fermer le guide", use_container_width=True):
+    if st.button("J'ai compris, fermer le guide", use_container_width=True):
         st.rerun()
 
 # --- 5. FONCTIONS MÉTIER ---
