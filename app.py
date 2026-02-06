@@ -36,28 +36,29 @@ except Exception as e:
     st.error(f"⚠️ Erreur de configuration : {e}")
     st.stop()
 
-# --- 3. STYLE CSS (COULEURS BOUTONS & SOUS-TITRE) ---
+# --- 3. STYLE CSS (COULEURS & SOUS-TITRE) ---
 st.markdown("""
     <style>
-    /* 1. Bouton ROUGE : Crédits supplémentaires (Primary) */
+    /* 1. Bouton ROUGE : Crédits supplémentaires */
     div.stButton > button[kind="primary"] {
         background-color: #e02e2e !important;
         color: white !important;
         border: none !important;
-        width: 100%;
     }
     
-    /* 2. Bouton VERT : Expertise (Via Popover) */
-    div[data-testid="stPopover"] > button {
+    /* 2. Bouton VERT : Expertise Humaine (L'expander) */
+    .st-key-expander_expertise { 
+        border: 1px solid #2eb82e !important;
+    }
+    .st-key-expander_expertise > details > summary {
         background-color: #2eb82e !important;
         color: white !important;
-        border: none !important;
-        width: 100%;
-        margin-top: 10px;
+        border-radius: 8px;
+        font-weight: bold;
     }
 
-    /* 3. Bouton JAUNE : Import / Export (Expander) */
-    .st-emotion-cache-p5msec { /* Cible l'en-tête de l'expander */
+    /* 3. Bouton JAUNE : Import / Export */
+    .st-key-expander_io > details > summary {
         background-color: #ffcc00 !important;
         color: #1a1a1a !important;
         border-radius: 8px;
@@ -66,20 +67,10 @@ st.markdown("""
 
     .intro-box { 
         background-color: rgba(127, 90, 240, 0.15); 
-        padding: 20px; 
-        border-radius: 10px; 
-        border: 1px solid #7f5af0; 
-        margin-bottom: 25px; 
-        color: #1a1a1a;
+        padding: 20px; border-radius: 10px; border: 1px solid #7f5af0; 
+        margin-bottom: 25px; color: #1a1a1a;
     }
-    
-    /* Style pour le sous-titre H3 */
-    .intro-box h3 {
-        margin: 0;
-        font-size: 1.2rem;
-        color: #1a1a1a;
-        font-weight: 600;
-    }
+    .intro-box h3 { margin: 0; font-size: 1.25rem; font-weight: 600; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -182,50 +173,44 @@ if not st.session_state.user:
             except Exception as e: st.error(f"Erreur base de données : {e}")
     st.stop()
 
-# --- 7. SIDEBAR (V3 TEST : COULEURS & NAVIGATION) ---
+# --- 7. SIDEBAR (V3 TEST : ÉPURÉE & COLORÉE) ---
 with st.sidebar:
     if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
     st.info(f"👤 {st.session_state.user['email']}\n🎯 **{st.session_state.user['credits']} Crédits**")
     
-    # BOUTON GUIDE (Neutre)
     if st.button("🚀 Guide Quick-Start", use_container_width=True):
         show_quick_start()
 
-    # BOUTON ROUGE : Crédits supplémentaires
+    # Bouton ROUGE
     st.link_button("⚡ Crédits supplémentaires", LINK_RECHARGE, type="primary", use_container_width=True)
 
-    # BOUTON VERT : Expertise Humaine (Placé sous le rouge)
-    with st.popover("💎 Expertise Humaine", use_container_width=True):
+    st.divider()
+
+    # Bouton JAUNE (Import/Export)
+    with st.expander("📂 Import / Export", expanded=False):
+        # On force une clé unique pour le style CSS
+        st.markdown('<div class="st-key-expander_io"></div>', unsafe_allow_html=True)
         if st.session_state.project["analysis"]:
-            st.markdown("### Qualification de l'Audit")
+            st.download_button("📄 Telecharger PDF", create_pdf_bytes(st.session_state.project), "Rapport.pdf", use_container_width=True)
+        st.download_button("💾 Sauver JSON", json.dumps({"data": st.session_state.project}), "projet.json", use_container_width=True)
+        up = st.file_uploader("📥 Importer JSON", type="json")
+        if up and st.button("✅ Valider l'Import"):
+            st.session_state.project.update(json.load(up).get("data", {})); st.rerun()
+
+    # Bouton VERT (Expertise Humaine)
+    with st.expander("💎 Expertise Humaine (Qualification)", expanded=True):
+        st.markdown('<div class="st-key-expander_expertise"></div>', unsafe_allow_html=True)
+        if st.session_state.project["analysis"]:
+            importance = st.selectbox("Importance projet :", ["haute", "moyenne", "basse"], key="qualif_imp")
+            timeline = st.selectbox("Timing :", ["Immédiat", "Sous 3 mois", "En réflexion"], key="qualif_time")
+            attente = st.text_area("Quelle est votre attente ?", key="qualif_attente")
             
-            # Ajout de clés uniques (key) pour éviter le DuplicateElementId
-            importance = st.selectbox(
-                "Importance projet :", 
-                ["haute", "moyenne", "basse"], 
-                key="expert_importance" # <--- CLÉ UNIQUE
-            )
-            timeline = st.selectbox(
-                "Timing :", 
-                ["Immédiat", "Sous 3 mois", "En réflexion"], 
-                key="expert_timeline"   # <--- CLÉ UNIQUE (Ligne 231 fixée)
-            )
-            attente = st.text_area(
-                "Quelle est votre attente ?", 
-                placeholder="Expliquez ce que vous recherchez...",
-                key="expert_attente"    # <--- CLÉ UNIQUE
-            )
-            
-            if st.button("🚀 Réserver mon Audit PDF", use_container_width=True, key="btn_audit_expert"):
+            if st.button("🚀 Réserver mon Audit PDF", use_container_width=True, key="qualif_btn"):
                 if attente:
                     details = f"IMPORTANCE: {importance} | TIMELINE: {timeline} | ATTENTE: {attente}"
                     if send_audit_email(details, create_pdf_bytes(st.session_state.project)): 
-                        st.success("Dossier envoyé !")
-                        st.balloons()
-                    else:
-                        st.error("Erreur d'envoi.")
-                else:
-                    st.warning("Précisez votre attente.")
+                        st.success("Dossier envoyé !"); st.balloons()
+                else: st.warning("Précisez votre attente.")
         else:
             st.warning("Terminez l'étape 1 pour débloquer l'expertise.")
 
