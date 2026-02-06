@@ -42,17 +42,26 @@ st.markdown("""
     /* Bouton ROUGE : Crédits supplémentaires */
     div.stButton > button[kind="primary"] { background-color: #e02e2e !important; color: white !important; border: none !important; }
     
-    /* NAVIGATION HAUTE : TAILLE H2 (2rem) */
+    /* NAVIGATION HAUTE : POLICE MASSIVE & BOUTONS COMPACTS */
     .st-key-nav_1 button, .st-key-nav_2 button, .st-key-nav_3 button {
-        height: 5em !important;
-        font-size: 2rem !important; /* Équivalent H2 */
-        font-weight: 800 !important;
-        border-radius: 15px !important;
+        height: auto !important;            /* Supprime la hauteur fixe encombrante */
+        padding: 25px 10px !important;      /* Donne du souffle autour du texte uniquement */
+        font-size: 2.8rem !important;       /* Police ultra-massive (supérieure au H2) */
+        font-weight: 900 !important;        /* Graissage maximum */
+        line-height: 1 !important;
+        border-radius: 12px !important;
         border: 2px solid #7f5af0 !important;
-        transition: transform 0.2s ease;
+        background-color: white !important;
+        color: #7f5af0 !important;
+        transition: all 0.2s ease;
     }
+
+    /* Effet au survol pour garder le côté interactif */
     .st-key-nav_1 button:hover, .st-key-nav_2 button:hover, .st-key-nav_3 button:hover {
-        transform: scale(1.02);
+        background-color: #7f5af0 !important;
+        color: white !important;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(127, 90, 240, 0.3) !important;
     }
 
     /* Expander VERT : Expertise Humaine */
