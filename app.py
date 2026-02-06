@@ -42,19 +42,7 @@ st.markdown("""
     /* Bouton ROUGE : Crédits supplémentaires */
     div.stButton > button[kind="primary"] { background-color: #e02e2e !important; color: white !important; border: none !important; }
     
-    /* NAVIGATION HAUTE : POLICE MASSIVE & BOUTONS COMPACTS */
-    .st-key-nav_1 button, .st-key-nav_2 button, .st-key-nav_3 button {
-        height: auto !important;            /* Supprime la hauteur fixe encombrante */
-        padding: 25px 10px !important;      /* Donne du souffle autour du texte uniquement */
-        font-size: 2.8rem !important;       /* Police ultra-massive (supérieure au H2) */
-        font-weight: 900 !important;        /* Graissage maximum */
-        line-height: 1 !important;
-        border-radius: 12px !important;
-        border: 2px solid #7f5af0 !important;
-        background-color: white !important;
-        color: #7f5af0 !important;
-        transition: all 0.2s ease;
-    }
+
 
     /* Effet au survol pour garder le côté interactif */
     .st-key-nav_1 button:hover, .st-key-nav_2 button:hover, .st-key-nav_3 button:hover {
@@ -67,6 +55,26 @@ st.markdown("""
     /* Expander VERT : Expertise Humaine */
     .expert-box > div:first-child { background-color: #2eb82e !important; color: white !important; border-radius: 8px; }
 
+    /* NAVIGATION HAUTE : IMPACT MAXIMUM */
+    .st-key-nav_1 button, .st-key-nav_2 button, .st-key-nav_3 button {
+        height: auto !important;
+        padding: 20px 5px !important;
+        font-size: 4rem !important;        /* Taille H1+ pour un impact total */
+        font-weight: 950 !important;       /* Graissage ultra-noir */
+        line-height: 0.9 !important;
+        letter-spacing: -2px !important;    /* Resserre pour l'aspect pro */
+        border-radius: 12px !important;
+        border: 3px solid #7f5af0 !important;
+        background-color: white !important;
+        color: #7f5af0 !important;
+        transition: all 0.2s ease;
+    }
+
+    .st-key-nav_1 button:hover, .st-key-nav_2 button:hover, .st-key-nav_3 button:hover {
+        background-color: #7f5af0 !important;
+        color: white !important;
+        transform: scale(1.02);
+    }
     /* Expander JAUNE : Import / Export */
     .io-box > div:first-child { background-color: #ffcc00 !important; color: #1a1a1a !important; border-radius: 8px; }
 
@@ -78,7 +86,15 @@ st.markdown("""
 # --- 4. DIALOG : GUIDE QUICK-START COMPLET ---
 @st.dialog("🚀 Guide Quick-Start : Maîtrisez Stratège IA en 5 minutes")
 def show_quick_start():
+    # Message d'alerte prioritaire
+    st.error("⚠️ Ne rafraichissez pas la page avant d'avoir fait un export JSON de votre travail. Pour raison de confidentialité vos données ne sont pas stockées.")
+    
     st.markdown("""
+    Bienvenue dans votre laboratoire de stratégie. Cet outil n'est pas un simple chat, c'est un laboratoire où nous allons tester la résistance de votre idée.
+
+    ### 💡 La Règle d'Or : "Le Carburant"
+    Plus vous donnez de détails, plus l'IA est précise. Ne dites pas : *"Je veux vendre des fleurs"*. Dites : *"Je veux vendre des bouquets de fleurs séchées par abonnement B2B à Lyon avec livraison écologique."*
+
     ### 🛠️ Votre Parcours en 3 Étapes
     | Étape | Action | Objectif |
     | :--- | :--- | :--- |
@@ -89,14 +105,15 @@ def show_quick_start():
     ### 🧠 3 Astuces pour réussir
     1. **Affiner** : Utilisez le bouton dédié pour ajuster vos résultats sans frais.
     2. **Sauver** : Exportez en **JSON** pour reprendre votre session plus tard gratuitement.
-    3. **Partager** : Exportez votre dossier en **PDF**. C'est le support idéal pour vos partenaires.
+    3. **Partager** : Exportez votre dossier en **PDF**. C'est le support idéal pour présenter votre vision à des partenaires.
 
     ### 💎 Expertise & Audit Qualifié
     L'audit humain par Florent est **exclusivement réservé aux projets à haut potentiel**. Pour garantir une expertise de qualité et éviter le "tourisme entrepreneurial", chaque demande fait l'objet d'une pré-qualification (Importance / Attente). 
     
     *Fermez cette fenêtre via la croix en haut à droite.*
     """)
-
+    if st.button("J'ai compris, fermer le guide"):
+        st.rerun()
 # --- 5. FONCTIONS MÉTIER ---
 def create_pdf_bytes(data):
     pdf = FPDF()
