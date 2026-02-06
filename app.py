@@ -198,21 +198,36 @@ with st.sidebar:
     with st.popover("💎 Expertise Humaine", use_container_width=True):
         if st.session_state.project["analysis"]:
             st.markdown("### Qualification de l'Audit")
-            importance = st.selectbox("Importance projet :", ["haute", "moyenne", "basse"])
-            timeline = st.selectbox("Timing :", ["Immédiat", "Sous 3 mois", "En réflexion"])
-            attente = st.text_area("Quelle est votre attente ?", placeholder="Expliquez ce que vous recherchez...")
             
-            if st.button("🚀 Réserver mon Audit PDF", use_container_width=True):
+            # Ajout de clés uniques (key) pour éviter le DuplicateElementId
+            importance = st.selectbox(
+                "Importance projet :", 
+                ["haute", "moyenne", "basse"], 
+                key="expert_importance" # <--- CLÉ UNIQUE
+            )
+            timeline = st.selectbox(
+                "Timing :", 
+                ["Immédiat", "Sous 3 mois", "En réflexion"], 
+                key="expert_timeline"   # <--- CLÉ UNIQUE (Ligne 231 fixée)
+            )
+            attente = st.text_area(
+                "Quelle est votre attente ?", 
+                placeholder="Expliquez ce que vous recherchez...",
+                key="expert_attente"    # <--- CLÉ UNIQUE
+            )
+            
+            if st.button("🚀 Réserver mon Audit PDF", use_container_width=True, key="btn_audit_expert"):
                 if attente:
                     details = f"IMPORTANCE: {importance} | TIMELINE: {timeline} | ATTENTE: {attente}"
                     if send_audit_email(details, create_pdf_bytes(st.session_state.project)): 
-                        st.success("Dossier envoyé !"); st.balloons()
-                    else: st.error("Erreur d'envoi.")
-                else: st.warning("Précisez votre attente.")
+                        st.success("Dossier envoyé !")
+                        st.balloons()
+                    else:
+                        st.error("Erreur d'envoi.")
+                else:
+                    st.warning("Précisez votre attente.")
         else:
             st.warning("Terminez l'étape 1 pour débloquer l'expertise.")
-
-    st.divider()
 
     # BOUTON JAUNE : Import / Export
     with st.expander("📂 Import / Export", expanded=False):
