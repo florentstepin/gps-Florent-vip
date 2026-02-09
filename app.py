@@ -167,7 +167,7 @@ if not st.session_state.user:
             res = supabase.table("users").select("*").eq("email", email_clean).execute()
             if res.data: st.session_state.user = res.data[0]; st.rerun()
             else:
-                new = {"access_code": str(uuid.uuid4()), "email": email_clean, "credits": 2}
+                new = {"access_code": str(uuid.uuid4()), "email": email_clean, "credits": 3}
                 ins = supabase.table("users").insert(new).execute()
                 if ins.data: st.session_state.user = ins.data[0]; st.rerun()
     st.stop()
