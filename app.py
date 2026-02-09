@@ -25,7 +25,7 @@ st.markdown("""
         <h1>🚀 Stratège IA passe en version PRO !</h1>
         <p>Nous avons déménagé pour vous offrir plus de puissance, de stabilité et de nouvelles fonctionnalités.</p>
         <br>
-        <a href="https://VOTRE-NOUVELLE-URL.streamlit.app" class="btn-pro">Accéder à la V2.5 Pro (Cliquez ici)</a>
+        <a href="https://stratege-ia-beta.streamlit.app/" class="btn-pro">Accéder à la V2.5 Pro (Cliquez ici)</a>
         <br><br>
         <p><i>Vos crédits ont été conservés et mis à jour sur la nouvelle plateforme.</i></p>
     </div>
