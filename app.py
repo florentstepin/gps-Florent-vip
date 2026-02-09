@@ -111,12 +111,25 @@ def show_quick_start():
 def create_pdf_bytes(data):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "AUDIT STRATEGIQUE", ln=True, align="C")
-    sections = [("IDEE", data['idea']), ("1. D.U.R.", data['analysis']), ("2. PIVOTS", data['pivots']), ("3. ACTION", data['gps'])]
+    pdf.set_font("helvetica", "B", 16)
+    # Correction de la syntaxe ln=True qui causait les alertes
+    pdf.cell(0, 10, "AUDIT STRATEGIQUE", new_x="LMARGIN", new_y="NEXT", align="C")
+    
+    sections = [
+        ("IDEE", data['idea']), 
+        ("1. D.U.R.", data['analysis']), 
+        ("2. PIVOTS", data['pivots']), 
+        ("3. ACTION", data['gps'])
+    ]
+    
     for title, content in sections:
-        pdf.set_font("Helvetica", "B", 12); pdf.cell(0, 10, title, ln=True)
-        pdf.set_font("Helvetica", size=10); pdf.multi_cell(0, 5, str(content).encode('latin-1', 'replace').decode('latin-1'))
+        pdf.set_font("helvetica", "B", 12)
+        pdf.cell(0, 10, title, new_x="LMARGIN", new_y="NEXT") # Correction ici aussi
+        pdf.set_font("helvetica", size=10)
+        # Nettoyage du texte pour éviter les erreurs de caractères spéciaux
+        clean_text = str(content).encode('latin-1', 'replace').decode('latin-1')
+        pdf.multi_cell(0, 5, clean_text)
+        pdf.ln(5)
     return bytes(pdf.output())
 
 def send_audit_email(user_msg, pdf_content):
