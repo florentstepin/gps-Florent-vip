@@ -210,8 +210,11 @@ if st.session_state.current_step == 1:
             ref = st.text_area("Ajustements...", key="ref_1_v3")
             if st.button("Regénérer", key="btn_ref_1_v3"):
                 if st.session_state.user['credits'] > 0:
-                    st.session_state.project["analysis"] = model.generate_content(f"D.U.R pour {st.session_state.project['idea']}. Ajustement: {ref}").text
-                    consume_credit(); st.rerun()
+                    with st.status("🔄 Ré-expertise clinique en cours..."): # BULLE RESTAURÉE
+                        p = f"D.U.R pour {st.session_state.project['idea']}. Ajustement: {ref}."
+                        st.session_state.project["analysis"] = model.generate_content(p).text
+                        consume_credit()
+                    st.rerun()
         if st.button("➡️ Suivant : Lancer les Pivots", use_container_width=True, key="next_1_v3"):
             st.session_state.current_step = 2; st.rerun()
     else:
@@ -220,9 +223,51 @@ if st.session_state.current_step == 1:
         ctx = c2.text_area("Votre contexte :", key="in_ctx_v3")
         if st.button("Lancer l'Audit (1 crédit)", key="btn_step1_v3", use_container_width=True):
             if id_ and st.session_state.user['credits'] > 0:
-                res = model.generate_content(f"Audit D.U.R complet pour: {id_}. Contexte: {ctx}").text
-                st.session_state.project.update({"idea": id_, "context": ctx, "analysis": res})
-                consume_credit(); st.rerun()
+                with st.status("🧠 Audit D.U.R en cours..."): # BULLE RESTAURÉE
+                    res = model.generate_content(f"Audit D.U.R complet pour: {id_}. Contexte: {ctx}.").text
+                    st.session_state.project.update({"idea": id_, "context": ctx, "analysis": res})
+                    consume_credit()
+                st.rerun()
+
+elif st.session_state.current_step == 2:
+    st.header("💡 Pivots Stratégiques")
+    if not st.session_state.project["analysis"]: st.warning("Faites l'étape 1.")
+    elif st.session_state.project["pivots"]:
+        st.markdown(st.session_state.project["pivots"], unsafe_allow_html=True)
+        with st.popover("➕ Plus de variantes"): 
+            ref2 = st.text_area("Orientation...", key="ref_2_v3")
+            if st.button("Générer 4-6", key="btn_ref_2_v3"):
+                if st.session_state.user['credits'] > 0:
+                    with st.status("⚡ Calcul de nouvelles trajectoires..."): # BULLE RESTAURÉE
+                        p = f"Génère 3 pivots pour {st.session_state.project['idea']}. Orientation: {ref2}."
+                        st.session_state.project["pivots"] += f"\n\n{model.generate_content(p).text}"
+                        consume_credit()
+                    st.rerun()
+        if st.button("➡️ Suivant : Plan d'Action", use_container_width=True, key="next_2_v3"):
+            st.session_state.current_step = 3; st.rerun()
+    else:
+        if st.button("Générer les 3 Pivots (1 crédit)", key="btn_step2_v3", use_container_width=True):
+            with st.status("💡 Exploration des pivots possibles..."): # BULLE RESTAURÉE
+                p = f"3 pivots pour {st.session_state.project['idea']}. Tableau comparatif requis."
+                st.session_state.project["pivots"] = model.generate_content(p).text
+                consume_credit()
+            st.rerun()
+
+elif st.session_state.current_step == 3:
+    st.header("🗺️ Plan d'Action")
+    if not st.session_state.project["pivots"]: st.warning("Faites l'étape 2.")
+    elif st.session_state.project["gps"]:
+        st.markdown(st.session_state.project["gps"])
+        if st.button("🔄 Recalculer", key="btn_reset_3_v3"): st.session_state.project["gps"] = ""; st.rerun()
+    else:
+        sel = st.text_area("Pivot choisi :", key="sel_pivot_v3")
+        if st.button("Tracer le Plan d'Action (1 crédit)", key="btn_step3_v3", use_container_width=True):
+            if sel:
+                with st.status("🗺️ Génération de la feuille de route..."): # BULLE RESTAURÉE
+                    p = f"Plan d'Action pour : {sel}."
+                    st.session_state.project["gps"] = model.generate_content(p).text
+                    consume_credit()
+                st.rerun()
 
 elif st.session_state.current_step == 2:
     st.header("💡 Pivots Stratégiques")
