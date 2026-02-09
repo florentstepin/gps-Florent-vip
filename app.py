@@ -255,19 +255,52 @@ elif st.session_state.current_step == 2:
 
 elif st.session_state.current_step == 3:
     st.header("🗺️ Plan d'Action")
-    if not st.session_state.project["pivots"]: st.warning("Faites l'étape 2.")
+    
+    if not st.session_state.project["analysis"]: 
+        st.warning("Veuillez effectuer l'étape 1 d'abord.")
     elif st.session_state.project["gps"]:
         st.markdown(st.session_state.project["gps"])
-        if st.button("🔄 Recalculer", key="btn_reset_3_v3"): st.session_state.project["gps"] = ""; st.rerun()
+        if st.button("🔄 Recalculer / Changer de base", key="btn_reset_3_v3"): 
+            st.session_state.project["gps"] = ""
+            st.rerun()
     else:
-        sel = st.text_area("Pivot choisi :", key="sel_pivot_v3")
+        # --- NOUVEAUTÉ : SÉLECTEUR DE SOURCE ---
+        st.markdown("### Sur quelle base tracer votre plan ?")
+        source_plan = st.radio(
+            "Choisissez la direction à suivre :",
+            ["Utiliser l'Analyse Initiale (Verdict GO)", "Utiliser un Pivot spécifique de l'Étape 2"],
+            index=0,
+            horizontal=True,
+            key="source_plan_choice"
+        )
+
+        content_to_process = ""
+        
+        if source_plan == "Utiliser un Pivot spécifique de l'Étape 2":
+            with st.expander("👁️ Revoir vos pivots pour copier-coller"):
+                st.markdown(st.session_state.project["pivots"])
+            content_to_process = st.text_area("Collez ici le pivot que vous avez retenu :", key="sel_pivot_v3", placeholder="Collez le texte du tableau ici...")
+        else:
+            st.info("✅ Mode Fast-Track : L'IA va baser le plan sur votre Audit D.U.R initial.")
+            content_to_process = st.session_state.project["analysis"]
+
+        # --- BOUTON DE GÉNÉRATION ---
         if st.button("Tracer le Plan d'Action (1 crédit)", key="btn_step3_v3", use_container_width=True):
-            if sel:
-                with st.status("🗺️ Génération de la feuille de route..."): # BULLE RESTAURÉE
-                    p = f"Plan d'Action pour : {sel}."
+            if content_to_process:
+                with st.status("🗺️ Génération de la feuille de route opérationnelle..."):
+                    # On adapte le prompt selon la source
+                    instruction = "l'analyse initiale" if source_plan == "Utiliser l'Analyse Initiale (Verdict GO)" else "le pivot suivant"
+                    p = f"""
+                    MISSION : Tracer un Plan d'Action GPS.
+                    CONTEXTE : Tu te bases sur {instruction}.
+                    DONNÉES : {content_to_process}
+                    STRUCTURE REQUISE : Vision long terme, Actions prioritaires Mois 1, Structure & Acquisition Mois 3, Alerte Rouge (Risques).
+                    """
                     st.session_state.project["gps"] = model.generate_content(p).text
                     consume_credit()
                 st.rerun()
+            else:
+                st.warning("Veuillez fournir un contenu (pivot ou analyse) pour générer le plan.")
 
 elif st.session_state.current_step == 2:
     st.header("💡 Pivots Stratégiques")
